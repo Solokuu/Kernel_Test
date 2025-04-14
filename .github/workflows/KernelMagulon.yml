@@ -1,4 +1,4 @@
-name: KernelSU Builder
+name: KernelNOSU
 
 on:
   push:
