@@ -19,6 +19,9 @@ jobs:
       KBUILD_BUILD_HOST: Github-Action
       KBUILD_BUILD_USER: "AnyKernelTest"
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
+      # Dodane domyślne wartości dla zmiennych ZIP
+      ZIP_NO_KSU: "${{ matrix.version }}-NoKernelSU.zip"
+      ZIP_KSU: "${{ matrix.version }}-KernelSU.zip"
 
     steps:
       - name: Checkout
@@ -34,56 +37,78 @@ jobs:
         run: |
           echo "/usr/lib/ccache" >> $GITHUB_PATH
           echo "USE_CCACHE=1" >> $GITHUB_ENV
+          echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
+          mkdir -p ${{ github.workspace }}/.ccache
 
       - name: Cache ccache
         uses: actions/cache@v4
         with:
-          path: ~/.ccache
+          path: ${{ github.workspace }}/.ccache
           key: ${{ runner.os }}-ccache-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ccache-
+
+      - name: Prepare directories
+        run: |
+          mkdir -p ${{ github.workspace }}/outw/{true,false}
+          mkdir -p AnyKernel3
 
       - name: Clone AnyKernel3
         run: |
           chmod +x anykernelTest.sh
           ./anykernelTest.sh
 
-      - name: Set ZIP_NO_KSU and ZIP_KSU environment variables
+      - name: Build kernels
         run: |
-          echo "ZIP_NO_KSU=${{ env.VERSION }}-NoKernelSU.zip" >> $GITHUB_ENV
+          chmod +x build.sh
+          ./build.sh
 
-      - name: Make AnyKernel3 zip
+      - name: Make AnyKernel3 zips
         run: |
           chmod +x makezip.sh
           ./makezip.sh
+
+      - name: Verify created files
+        run: |
+          ls -la ${{ github.workspace }}
+          [ -f "${{ github.workspace }}/${{ env.ZIP_NO_KSU }}" ] || { echo "Missing ${{ env.ZIP_NO_KSU }}"; exit 1; }
 
       - name: Extract info for release
         run: |
           chmod +x extract.sh
           ./extract.sh
 
-      - name: Make a release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-builds
+          path: |
+            ${{ github.workspace }}/${{ env.ZIP_NO_KSU }}
+
+      - name: Create release
+        if: success()
         uses: softprops/action-gh-release@v1
         with:
           files: |
-             ${{ github.workspace }}/${{ env.ZIP_NO_KSU }}
-             ${{ github.workspace }}/${{ env.ZIP_KSU }}
+            ${{ github.workspace }}/${{ env.ZIP_NO_KSU }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: KernelSU Release - ${{ env.KERNELSU_VERSION }}
-          tag_name: ${{ github.run_id }}
+          name: KernelSU Release - ${{ env.VERSION }}
+          tag_name: build-${{ github.run_number }}
           body: |
-             **Info:**
-              - KernelSU Version: ${{ env.KERNELSU_VERSION }}.
-              
-              **Installation:**
-              - Download desired zip file.
-              - Flash the zip file in recovery using sideload or any other method.
-            
-              <details>
-                <summary>Build Settings</summary>
-                  ```
-                  ${{ env.buildsettings }}
-                  ```
-              </details>
+            **Kernel Information:**
+            - Version: ${{ env.VERSION }}
+            - KernelSU Version: ${{ env.KERNELSU_VERSION }}
+
+            **Installation Instructions:**
+            1. Download the appropriate zip file
+            2. Flash in custom recovery
+            3. Reboot and enjoy
+
+            <details>
+              <summary>Build Details</summary>
+              ```
+              ${{ env.buildsettings }}
+              ```
+            </details>
           draft: false
           prerelease: false
