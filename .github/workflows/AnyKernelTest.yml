@@ -9,78 +9,49 @@ on:
 jobs:
   package:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        version: ["LineageOS-20"]
-
     env:
-      VERSION: ${{ matrix.version }}
-      ZIP_NO_KSU: "${{ matrix.version }}-NoKernelSU.zip"
-      ZIP_KSU: "${{ matrix.version }}-KernelSU.zip"
-
+      VERSION: "LineageOS-20"
+      ZIP_NO_KSU: "${{ env.VERSION }}-NoKernelSU.zip"
+      ZIP_KSU: "${{ env.VERSION }}-KernelSU.zip"
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Verify kernel image exists
-        run: |
-          if [ ! -f "anykernel_test/Image.gz-dtb" ]; then
-            echo "Error: Kernel image not found at anykernel_test/Image.gz-dtb"
-            exit 1
-          fi
-          echo "Kernel image found and verified"
-
-      - name: Set up packaging environment
+      - name: Set up environment
         run: |
           sudo apt update
           sudo apt install -y zip
-          mkdir -p outw/{true,false} AnyKernel3
-
-      - name: Prepare kernel images
-        run: |
-          # Copy the same kernel image to both directories
+          mkdir -p outw/{true,false} AnyKernel3 output
           cp anykernel_test/Image.gz-dtb outw/false/
           cp anykernel_test/Image.gz-dtb outw/true/
-          echo "Kernel images prepared for packaging"
 
       - name: Package kernels
         run: |
           chmod +x makezip.sh
           ./makezip.sh
 
-      - name: Verify created packages
+      - name: Verify packages
         run: |
-          ls -lh ${{ github.workspace }}/*.zip
-          [ -f "${{ github.workspace }}/${{ env.ZIP_NO_KSU }}" ] || { echo "Missing ${{ env.ZIP_NO_KSU }}"; exit 1; }
+          ls -lh output/
+          [ -f "output/$ZIP_NO_KSU" ] || { echo "Missing $ZIP_NO_KSU"; exit 1; }
+          [ -f "output/$ZIP_KSU" ] || { echo "Missing $ZIP_KSU"; exit 1; }
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: kernel-packages
-          path: |
-            ${{ github.workspace }}/${{ env.ZIP_NO_KSU }}
+          path: output/*.zip
 
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            ${{ github.workspace }}/${{ env.ZIP_NO_KSU }}
-            ${{ github.workspace }}/${{ env.ZIP_KSU }}
+          files: output/*.zip
           token: ${{ secrets.GITHUB_TOKEN }}
           name: "Kernel Package - ${{ env.VERSION }}"
           tag_name: "package-${{ github.run_number }}"
           body: |
-            Pre-packaged kernel images for ${{ env.VERSION }}.
-
-            **Contents:**
-            - ${{ env.ZIP_NO_KSU }}: Standard kernel
-            - ${{ env.ZIP_KSU }}: Kernel with KernelSU support
-
-            **Installation:**
-            1. Download the appropriate zip file
-            2. Flash in custom recovery
-            3. Reboot your device
+            Pre-built kernel packages.
+            Contains both standard and KernelSU versions.
           draft: false
           prerelease: false
