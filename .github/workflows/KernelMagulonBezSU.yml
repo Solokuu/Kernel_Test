@@ -59,7 +59,7 @@ jobs:
 
       - name: Extract Kernel Image path
         run: |
-          echo "KERNEL_IMAGE=$(find ./out -name Image.gz-dtb)" >> $GITHUB_ENV
+          echo "KERNEL_IMAGE=/home/runner/work/Kernel_Test/Kernel_Test/kernel/out/arch/arm64/boot/Image.gz-dtb" >> $GITHUB_ENV
 
       - name: Make a release
         uses: softprops/action-gh-release@v1
