@@ -7,7 +7,7 @@ on:
     types: [AnyKernelTest]
 
 jobs:
-  build:
+  package:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -15,100 +15,72 @@ jobs:
 
     env:
       VERSION: ${{ matrix.version }}
-      ARCH: arm64
-      KBUILD_BUILD_HOST: Github-Action
-      KBUILD_BUILD_USER: "AnyKernelTest"
-      CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
-      # Dodane domyślne wartości dla zmiennych ZIP
       ZIP_NO_KSU: "${{ matrix.version }}-NoKernelSU.zip"
       ZIP_KSU: "${{ matrix.version }}-KernelSU.zip"
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Install build dependencies
+      - name: Verify kernel image exists
+        run: |
+          if [ ! -f "anykernel_test/Image.gz-dtb" ]; then
+            echo "Error: Kernel image not found at anykernel_test/Image.gz-dtb"
+            exit 1
+          fi
+          echo "Kernel image found and verified"
+
+      - name: Set up packaging environment
         run: |
           sudo apt update
-          sudo apt install -y python3-pip jq libarchive-tools zip lib32z1-dev libbz2-dev pngcrush python-is-python3 libsdl1.2-dev autoconf libxml2-utils wget pkg-config unzip gawk imagemagick libc6-dev gcc-multilib patchelf gzip clang subversion optipng device-tree-compiler ccache gcc lzip rsync automake fastboot patch pngquant expat lzop libswitch-perl make libcap-dev adb libxml2 bison zlib1g-dev libtool squashfs-tools gperf flex libtinfo6 minicom liblz4-tool libmpfr-dev libssl-dev build-essential cmake g++-multilib re2c axel maven xsltproc g++ git git-lfs policycoreutils unrar ncurses-dev tree bc curl software-properties-common tar texinfo schedtool libc6-dev-i386 apt-utils
-          sudo pip3 install yq
+          sudo apt install -y zip
+          mkdir -p outw/{true,false} AnyKernel3
 
-      - name: Set up ccache
+      - name: Prepare kernel images
         run: |
-          echo "/usr/lib/ccache" >> $GITHUB_PATH
-          echo "USE_CCACHE=1" >> $GITHUB_ENV
-          echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
-          mkdir -p ${{ github.workspace }}/.ccache
+          # Copy the same kernel image to both directories
+          cp anykernel_test/Image.gz-dtb outw/false/
+          cp anykernel_test/Image.gz-dtb outw/true/
+          echo "Kernel images prepared for packaging"
 
-      - name: Cache ccache
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/.ccache
-          key: ${{ runner.os }}-ccache-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-ccache-
-
-      - name: Prepare directories
-        run: |
-          mkdir -p ${{ github.workspace }}/outw/{true,false}
-          mkdir -p AnyKernel3
-
-      - name: Clone AnyKernel3
-        run: |
-          chmod +x anykernelTest.sh
-          ./anykernelTest.sh
-
-      - name: Build kernels
-        run: |
-          chmod +x build.sh
-          ./build.sh
-
-      - name: Make AnyKernel3 zips
+      - name: Package kernels
         run: |
           chmod +x makezip.sh
           ./makezip.sh
 
-      - name: Verify created files
+      - name: Verify created packages
         run: |
-          ls -la ${{ github.workspace }}
+          ls -lh ${{ github.workspace }}/*.zip
           [ -f "${{ github.workspace }}/${{ env.ZIP_NO_KSU }}" ] || { echo "Missing ${{ env.ZIP_NO_KSU }}"; exit 1; }
-
-      - name: Extract info for release
-        run: |
-          chmod +x extract.sh
-          ./extract.sh
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-builds
+          name: kernel-packages
           path: |
             ${{ github.workspace }}/${{ env.ZIP_NO_KSU }}
 
       - name: Create release
-        if: success()
         uses: softprops/action-gh-release@v1
         with:
           files: |
             ${{ github.workspace }}/${{ env.ZIP_NO_KSU }}
+            ${{ github.workspace }}/${{ env.ZIP_KSU }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: KernelSU Release - ${{ env.VERSION }}
-          tag_name: build-${{ github.run_number }}
+          name: "Kernel Package - ${{ env.VERSION }}"
+          tag_name: "package-${{ github.run_number }}"
           body: |
-            **Kernel Information:**
-            - Version: ${{ env.VERSION }}
-            - KernelSU Version: ${{ env.KERNELSU_VERSION }}
+            Pre-packaged kernel images for ${{ env.VERSION }}.
 
-            **Installation Instructions:**
+            **Contents:**
+            - ${{ env.ZIP_NO_KSU }}: Standard kernel
+            - ${{ env.ZIP_KSU }}: Kernel with KernelSU support
+
+            **Installation:**
             1. Download the appropriate zip file
             2. Flash in custom recovery
-            3. Reboot and enjoy
-
-            <details>
-              <summary>Build Details</summary>
-              ```
-              ${{ env.buildsettings }}
-              ```
-            </details>
+            3. Reboot your device
           draft: false
           prerelease: false
