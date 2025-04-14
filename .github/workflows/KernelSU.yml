@@ -19,6 +19,7 @@ jobs:
       KBUILD_BUILD_HOST: Github-Action
       KBUILD_BUILD_USER: "KernelSU_Builder"
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
+      KERNEL_OUT_PATH: /home/runner/work/Kernel_Test/Kernel_Test/kernel/out
 
     steps:
       - name: Checkout
@@ -63,16 +64,10 @@ jobs:
           VERSION: ${{ matrix.version }}
           KERNELSU_VERSION: ${{ env.KERNELSU_VERSION }}
 
-      # ... (reszta kroków pozostaje bez zmian)
-
-      - name: Move kernel with KernelSU support to output directory
-        run: |
-          chmod +x move.sh
-          ./move.sh
-
+      # Extract Kernel Image path
       - name: Extract Kernel Image path
         run: |
-          echo "KERNEL_IMAGE=/home/runner/work/Kernel_Test/Kernel_Test/kernel/out/arch/arm64/boot/Image.gz-dtb" >> $GITHUB_ENV
+          echo "KERNEL_IMAGE=${{ env.KERNEL_OUT_PATH }}/arch/arm64/boot/Image.gz-dtb" >> $GITHUB_ENV
 
       - name: Make a release
         uses: softprops/action-gh-release@v1
@@ -84,8 +79,8 @@ jobs:
           tag_name: ${{ github.run_id }}
           body: |
              **Info:**
-              - KernelSU Version: ${{ env.VERSION }}.
-            
+              - KernelSU Version: ${{ env.KERNELSU_VERSION }}.
+
               <details>
                 <summary>Build Settings</summary>
                   ```
