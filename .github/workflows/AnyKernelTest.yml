@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERSION: "LineageOS-20"
-      ZIP_NO_KSU: "${{ env.VERSION }}-NoKernelSU.zip"
-      ZIP_KSU: "${{ env.VERSION }}-KernelSU.zip"
+      ZIP_NO_KSU: "LineageOS-20-NoKernelSU.zip"
+      ZIP_KSU: "LineageOS-20-KernelSU.zip"
       OUTPUT_DIR: "${{ github.workspace }}/output"
 
     steps:
@@ -54,8 +54,8 @@ jobs:
         run: |
           echo "Verifying output files:"
           ls -lh ${{ env.OUTPUT_DIR }}
-          [ -f "${{ env.OUTPUT_DIR }}/${{ env.ZIP_NO_KSU }}" ] || { echo "::error::Missing ${{ env.ZIP_NO_KSU }}"; exit 1; }
-          [ -f "${{ env.OUTPUT_DIR }}/${{ env.ZIP_KSU }}" ] || { echo "::error::Missing ${{ env.ZIP_KSU }}"; exit 1; }
+          [ -f "${{ env.OUTPUT_DIR }}/$ZIP_NO_KSU" ] || { echo "::error::Missing $ZIP_NO_KSU"; exit 1; }
+          [ -f "${{ env.OUTPUT_DIR }}/$ZIP_KSU" ] || { echo "::error::Missing $ZIP_KSU"; exit 1; }
           echo "All packages verified"
 
       - name: Upload artifacts
@@ -70,28 +70,21 @@ jobs:
         if: success()
         with:
           files: |
-            ${{ env.OUTPUT_DIR }}/${{ env.ZIP_NO_KSU }}
-            ${{ env.OUTPUT_DIR }}/${{ env.ZIP_KSU }}
+            ${{ env.OUTPUT_DIR }}/$ZIP_NO_KSU
+            ${{ env.OUTPUT_DIR }}/$ZIP_KSU
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: "Kernel Package - ${{ env.VERSION }}"
+          name: "Kernel Package - $VERSION"
           tag_name: "v${{ github.run_number }}"
           body: |
-            ## Kernel Packages for ${{ env.VERSION }}
+            ## Kernel Packages for $VERSION
 
             ### Available Packages:
-            - **Standard Version**: ${{ env.ZIP_NO_KSU }}
-            - **KernelSU Version**: ${{ env.ZIP_KSU }}
+            - **Standard Version**: $ZIP_NO_KSU
+            - **KernelSU Version**: $ZIP_KSU
 
             ### Installation:
             1. Download the appropriate zip file
             2. Flash in custom recovery (TWRP, OrangeFox, etc.)
             3. Reboot your device
-
-            ### Verification:
-            SHA256 Checksums:
-            ```
-            ${{ hashFiles(format('{0}/{1}', env.OUTPUT_DIR, env.ZIP_NO_KSU)) }}  ${{ env.ZIP_NO_KSU }}
-            ${{ hashFiles(format('{0}/{1}', env.OUTPUT_DIR, env.ZIP_KSU)) }}  ${{ env.ZIP_KSU }}
-            ```
           draft: false
           prerelease: false
