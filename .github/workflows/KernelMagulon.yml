@@ -1,16 +1,24 @@
 name: KernelMagulon
 
 on:
+  push:
   workflow_dispatch:
+  repository_dispatch:
+    types: [trigger-KernelSU-build]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: ["LineageOS-20"]
 
     env:
+      VERSION: ${{ matrix.version }}
       ARCH: arm64
       KBUILD_BUILD_HOST: Github-Action
       KBUILD_BUILD_USER: "KernelSU_Builder"
+      CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
 
     steps:
       # Pobranie kodu źródłowego repozytorium
@@ -38,7 +46,7 @@ jobs:
 
       # Przesyłanie skompilowanego jądra jako artefaktu do pobrania
       - name: Upload compiled kernel artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: compiled_kernel
-          path: ./out/arch/arm64/boot/Image.gz-dtb  # Ścieżka do pliku wynikowego jądra (dostosuj w razie potrzeby)
+          path: ./out/arch/arm64/boot/Image.gz-dtb # Ścieżka do pliku wynikowego jądra (dostosuj w razie potrzeby)
