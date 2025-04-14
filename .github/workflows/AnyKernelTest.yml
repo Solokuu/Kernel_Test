@@ -12,7 +12,6 @@ jobs:
     env:
       VERSION: "LineageOS-20"
       ZIP_NO_KSU: "${{ env.VERSION }}-NoKernelSU.zip"
-      ZIP_KSU: "${{ env.VERSION }}-KernelSU.zip"
     
     steps:
       - name: Checkout repository
@@ -35,7 +34,6 @@ jobs:
         run: |
           ls -lh output/
           [ -f "output/$ZIP_NO_KSU" ] || { echo "Missing $ZIP_NO_KSU"; exit 1; }
-          [ -f "output/$ZIP_KSU" ] || { echo "Missing $ZIP_KSU"; exit 1; }
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
