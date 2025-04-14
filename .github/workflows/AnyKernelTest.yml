@@ -70,8 +70,8 @@ jobs:
         if: success()
         with:
           files: |
-            ${{ env.OUTPUT_DIR }}/$ZIP_NO_KSU
-            ${{ env.OUTPUT_DIR }}/$ZIP_KSU
+            ${{ env.OUTPUT_DIR }}/LineageOS-20-NoKernelSU.zip
+            ${{ env.OUTPUT_DIR }}/LineageOS-20-KernelSU.zip
           token: ${{ secrets.GITHUB_TOKEN }}
           name: "Kernel Package - $VERSION"
           tag_name: "v${{ github.run_number }}"
@@ -79,8 +79,8 @@ jobs:
             ## Kernel Packages for $VERSION
 
             ### Available Packages:
-            - **Standard Version**: $ZIP_NO_KSU
-            - **KernelSU Version**: $ZIP_KSU
+            - **Standard Version**: LineageOS-20-NoKernelSU.zip
+            - **KernelSU Version**: LineageOS-20-KernelSU.zip
 
             ### Installation:
             1. Download the appropriate zip file
