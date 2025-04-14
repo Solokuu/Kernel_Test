@@ -4,7 +4,7 @@ on:
   push:
   workflow_dispatch:
   repository_dispatch:
-    types: [trigger-KernelSU-build]
+    types: [trigger-Kernel-build]
 
 jobs:
   build:
@@ -17,7 +17,7 @@ jobs:
       VERSION: ${{ matrix.version }}
       ARCH: arm64
       KBUILD_BUILD_HOST: Github-Action
-      KBUILD_BUILD_USER: "KernelSU_Builder"
+      KBUILD_BUILD_USER: "Kernel_Builder"
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
 
     steps:
@@ -52,26 +52,10 @@ jobs:
         run: |
           echo "${CLANG_PATH}" >> $GITHUB_PATH
 
-      - name: Set KERNELSU environment variable to true
-        run: echo "KERNELSU=true" >> $GITHUB_ENV
-
-      - name: Set KERNELSU_VERSION environment variable
-        run: echo "KERNELSU_VERSION=$(cat ksu_version.txt)" >> $GITHUB_ENV
-
-      - name: Add KernelSU support to kernel
-        run: |
-          chmod +x kernelSU.sh
-          ./kernelSU.sh
-
-      - name: Compile kernel with KernelSU support
+      - name: Compile kernel
         run: |
           chmod +x build.sh
           ./build.sh
-
-      - name: Move kernel with KernelSU support to output directory
-        run: |
-          chmod +x move.sh
-          ./move.sh
 
       - name: Extract Kernel Image path
         run: |
@@ -83,11 +67,11 @@ jobs:
           files: |
              ${{ env.KERNEL_IMAGE }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: KernelSU Release - ${{ env.KERNELSU_VERSION }}
+          name: Kernel Release - ${{ env.VERSION }}
           tag_name: ${{ github.run_id }}
           body: |
              **Info:**
-              - KernelSU Version: ${{ env.KERNELSU_VERSION }}.
+              - Kernel Version: ${{ env.VERSION }}.
               
               **Installation:**
               - Place Image.gz-dtb to /boot
