@@ -12,44 +12,86 @@ jobs:
     env:
       VERSION: "LineageOS-20"
       ZIP_NO_KSU: "${{ env.VERSION }}-NoKernelSU.zip"
-    
+      ZIP_KSU: "${{ env.VERSION }}-KernelSU.zip"
+      OUTPUT_DIR: "${{ github.workspace }}/output"
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Set up environment
+      - name: Verify kernel image exists
+        run: |
+          if [ ! -f "anykernel_test/Image.gz-dtb" ]; then
+            echo "::error::Kernel image not found at anykernel_test/Image.gz-dtb"
+            exit 1
+          fi
+          echo "Kernel image verified"
+
+      - name: Set up packaging environment
         run: |
           sudo apt update
-          sudo apt install -y zip
-          mkdir -p outw/{true,false} AnyKernel3 output
-          cp anykernel_test/Image.gz-dtb outw/false/
-          cp anykernel_test/Image.gz-dtb outw/true/
+          sudo apt install -y zip tree
+          mkdir -p outw/{true,false} AnyKernel3 ${{ env.OUTPUT_DIR }}
+          cp -v anykernel_test/Image.gz-dtb outw/false/
+          cp -v anykernel_test/Image.gz-dtb outw/true/
+          echo "Environment setup completed"
+          tree
+
+      - name: Make scripts executable
+        run: |
+          chmod +x makezip.sh
+          ls -la
 
       - name: Package kernels
         run: |
-          chmod +x makezip.sh
+          echo "Starting packaging process"
           ./makezip.sh
+          echo "Packaging completed"
 
-      - name: Verify packages
+      - name: Verify created packages
         run: |
-          ls -lh output/
-          [ -f "output/$ZIP_NO_KSU" ] || { echo "Missing $ZIP_NO_KSU"; exit 1; }
+          echo "Verifying output files:"
+          ls -lh ${{ env.OUTPUT_DIR }}
+          [ -f "${{ env.OUTPUT_DIR }}/${{ env.ZIP_NO_KSU }}" ] || { echo "::error::Missing ${{ env.ZIP_NO_KSU }}"; exit 1; }
+          [ -f "${{ env.OUTPUT_DIR }}/${{ env.ZIP_KSU }}" ] || { echo "::error::Missing ${{ env.ZIP_KSU }}"; exit 1; }
+          echo "All packages verified"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: kernel-packages
-          path: output/*.zip
+          path: ${{ env.OUTPUT_DIR }}/*.zip
+          retention-days: 1
 
       - name: Create release
         uses: softprops/action-gh-release@v1
+        if: success()
         with:
-          files: output/*.zip
+          files: |
+            ${{ env.OUTPUT_DIR }}/${{ env.ZIP_NO_KSU }}
+            ${{ env.OUTPUT_DIR }}/${{ env.ZIP_KSU }}
           token: ${{ secrets.GITHUB_TOKEN }}
           name: "Kernel Package - ${{ env.VERSION }}"
-          tag_name: "package-${{ github.run_number }}"
+          tag_name: "v${{ github.run_number }}"
           body: |
-            Pre-built kernel packages.
-            Contains both standard and KernelSU versions.
+            ## Kernel Packages for ${{ env.VERSION }}
+
+            ### Available Packages:
+            - **Standard Version**: ${{ env.ZIP_NO_KSU }}
+            - **KernelSU Version**: ${{ env.ZIP_KSU }}
+
+            ### Installation:
+            1. Download the appropriate zip file
+            2. Flash in custom recovery (TWRP, OrangeFox, etc.)
+            3. Reboot your device
+
+            ### Verification:
+            SHA256 Checksums:
+            ```
+            ${{ hashFiles(format('{0}/{1}', env.OUTPUT_DIR, env.ZIP_NO_KSU)) }}  ${{ env.ZIP_NO_KSU }}
+            ${{ hashFiles(format('{0}/{1}', env.OUTPUT_DIR, env.ZIP_KSU)) }}  ${{ env.ZIP_KSU }}
+            ```
           draft: false
           prerelease: false
