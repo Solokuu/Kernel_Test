@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: ["LineageOS-20"]
+        version: ["LineageOS-20", "Zenitsu", "DivestOS-13", "Sage-Android-14"]
 
     env:
       VERSION: ${{ matrix.version }}
@@ -27,7 +27,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip jq zip libarchive-tools lib32z1-dev libbz2-dev pngcrush python-is-python3 libsdl1.2-dev autoconf libxml2-utils wget pkg-config unzip gawk imagemagick libc6-dev gcc-multilib patchelf gzip clang subversion optipng device-tree-compiler ccache gcc lzip rsync automake fastboot patch pngquant expat lzop libswitch-perl make libcap-dev adb libxml2 bison zlib1g-dev libtool squashfs-tools gperf flex libtinfo6 minicom liblz4-tool libmpfr-dev libssl-dev build-essential cmake g++-multilib re2c axel maven xsltproc g++ git git-lfs policycoreutils unrar ncurses-dev tree bc curl software-properties-common tar texinfo schedtool libc6-dev-i386 apt-utils
+          sudo apt install -y python3-pip jq libarchive-tools zip lib32z-dev libghc-bzlib-dev pngcrush ^liblzma.* python-is-python3 libsdl1.2-dev autoconf libxml2-utils wget pkg-config unzip w3m gawk imagemagick libc6-dev gcc-multilib patchelf gzip clang subversion optipng device-tree-compiler ccache gcc ^liblz4-.* lzip rsync automake fastboot python2.7 patch zip pngquant expat lzop libswitch-perl make libcap-dev python2 adb libxml2 bison libxml-simple-perl zlib1g-dev libarchive-tools libtool squashfs-tools gperf ^lzma.* libfl-dev ncurses-dev pwgen flex libtinfo5 minicom liblz4-tool libmpfr-dev libssl-dev lib32ncurses5-dev libbz2-dev lib32z1-dev libgmp-dev git libncurses5-dev dpkg-dev libmpc-dev lftp python2-dev python3 rar git-lfs policycoreutils unrar libncurses5 libbz2-1.0 ncftp tree python-all-dev bzip2 bc ftp software-properties-common tar libgl1-mesa-dev texinfo schedtool curl libexpat1-dev llvm libc6-dev-i386 apt-utils cmake g++-multilib build-essential re2c axel maven xsltproc g++ libx11-dev libxml-sax-base-perl gnupg bash
           sudo pip3 install yq
 
       - name: Set up ccache
@@ -36,7 +36,7 @@ jobs:
           echo "USE_CCACHE=1" >> $GITHUB_ENV
 
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v2
         with:
           path: ~/.ccache
           key: ${{ runner.os }}-ccache-${{ github.sha }}
