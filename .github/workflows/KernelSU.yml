@@ -21,7 +21,36 @@ jobs:
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
 
     steps:
-      # ... (wcześniejsze kroki pozostają bez zmian)
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y python3-pip jq libarchive-tools zip lib32z1-dev libbz2-dev pngcrush python-is-python3 libsdl1.2-dev autoconf libxml2-utils wget pkg-config unzip gawk imagemagick libc6-dev gcc-multilib patchelf gzip clang subversion optipng device-tree-compiler ccache gcc lzip rsync automake fastboot patch pngquant expat lzop libswitch-perl make libcap-dev adb libxml2 bison zlib1g-dev libtool squashfs-tools gperf flex libtinfo6 minicom liblz4-tool libmpfr-dev libssl-dev build-essential cmake g++-multilib re2c axel maven xsltproc g++ git git-lfs policycoreutils unrar ncurses-dev tree bc curl software-properties-common tar texinfo schedtool libc6-dev-i386 apt-utils
+          sudo pip3 install yq
+
+      - name: Set up ccache
+        run: |
+          echo "/usr/lib/ccache" >> $GITHUB_PATH
+          echo "USE_CCACHE=1" >> $GITHUB_ENV
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Clone clang and kernel sources
+        run: |
+          chmod +x clone.sh
+          ./clone.sh
+
+      - name: Add Clang to PATH
+        run: |
+          echo "${CLANG_PATH}" >> $GITHUB_PATH
 
       - name: Set KERNELSU_VERSION environment variable
         run: echo "KERNELSU_VERSION=$(cat ksu_version.txt)" >> $GITHUB_ENV
