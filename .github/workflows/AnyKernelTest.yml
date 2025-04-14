@@ -1,10 +1,10 @@
-name: KernelSU Builder
+name: AnyKernelTest
 
 on:
   push:
   workflow_dispatch:
   repository_dispatch:
-    types: [trigger-KernelSU-build]
+    types: [AnyKernelTest]
 
 jobs:
   build:
@@ -17,7 +17,7 @@ jobs:
       VERSION: ${{ matrix.version }}
       ARCH: arm64
       KBUILD_BUILD_HOST: Github-Action
-      KBUILD_BUILD_USER: "KernelSU_Builder"
+      KBUILD_BUILD_USER: "AnyKernelTest"
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
 
     steps:
