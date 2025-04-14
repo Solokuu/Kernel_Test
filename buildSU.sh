@@ -40,7 +40,7 @@ execute_commands() {
     [ -n "$cmd" ] || continue
     cmd=${cmd//kernelsu-version/$KERNELSU_VERSION}
     echo -e "\033[33mExecuting: $cmd\033[0m"
-    
+
     # Special handling for config commands
     if [[ "$desc" == *"Configuring"* ]]; then
       (set -x; eval "$cmd" || {
