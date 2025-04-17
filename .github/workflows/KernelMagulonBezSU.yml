@@ -54,12 +54,18 @@ jobs:
           echo "${CLANG_PATH}" >> $GITHUB_PATH
 
       # Prepare kernel config tools
+            # Prepare kernel config tools
       - name: Build kernel config tools
         run: |
           cd $KERNEL_SRC
-          make -C scripts/config clean
-          make -C scripts/config
-          chmod +x scripts/config
+          
+          # Build the kconfig tools
+          make -C scripts/kconfig clean
+          make -C scripts/kconfig
+          chmod +x scripts/kconfig/conf
+          
+          # Create symlink for easy access
+          ln -sf $KERNEL_SRC/scripts/kconfig/conf $KERNEL_SRC/scripts/config
 
       # Kernel configuration modifications from drivers.cfg
       - name: Apply drivers configuration
@@ -74,32 +80,26 @@ jobs:
             
             # Process each line in drivers.cfg
             while IFS= read -r line; do
-              # Skip empty lines and comments
               [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
               
-              # Extract config option and value
-              config_key=$(echo "$line" | cut -d'=' -f1)
-              config_value=$(echo "$line" | cut -d'=' -f2)
-              
-              # Remove quotes and trim whitespace
-              config_key=$(echo "$config_key" | xargs)
-              config_value=$(echo "$config_value" | xargs)
+              config_key=$(echo "$line" | cut -d'=' -f1 | xargs)
+              config_value=$(echo "$line" | cut -d'=' -f2 | xargs)
               
               echo "Processing: $config_key=$config_value"
               
-              # Apply the config option
+              # Apply the config option using the proper tool
               case "$config_value" in
                 "y")
-                  ./scripts/config --file $CONFIG_FILE --enable $config_key
+                  scripts/kconfig/conf --olddefconfig $CONFIG_FILE --enable $config_key
                   ;;
                 "n")
-                  ./scripts/config --file $CONFIG_FILE --disable $config_key
+                  scripts/kconfig/conf --olddefconfig $CONFIG_FILE --disable $config_key
                   ;;
                 "m")
-                  ./scripts/config --file $CONFIG_FILE --module $config_key
+                  scripts/kconfig/conf --olddefconfig $CONFIG_FILE --module $config_key
                   ;;
                 *)
-                  ./scripts/config --file $CONFIG_FILE --set-val $config_key $config_value
+                  scripts/kconfig/conf --olddefconfig $CONFIG_FILE --set-val $config_key $config_value
                   ;;
               esac
             done < "$DRIVERS_CONFIG"
