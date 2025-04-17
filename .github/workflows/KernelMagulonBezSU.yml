@@ -3,8 +3,6 @@ name: Kernel Bez SU
 on:
   push:
   workflow_dispatch:
-  repository_dispatch:
-    types: [trigger-Kernel-build]
 
 jobs:
   build:
