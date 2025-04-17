@@ -112,28 +112,37 @@ jobs:
           chmod +x extract.sh
           ./extract.sh
 
+      - name: Verify ZIP files exist (Debug)
+        run: |
+          echo "Checking output directory:"
+          ls -la ${{ github.workspace }}/output/
+          echo "ZIP_NO_KSU: ${{ github.workspace }}/output/${{ env.ZIP_NO_KSU }}"
+          echo "ZIP_KSU: ${{ github.workspace }}/output/${{ env.ZIP_KSU }}"
+          [ -f "${{ github.workspace }}/output/${{ env.ZIP_NO_KSU }}" ] || exit 1
+          [ -f "${{ github.workspace }}/output/${{ env.ZIP_KSU }}" ] || exit 1
+
       - name: Make a release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-             ${{ github.workspace }}/output/${{ env.ZIP_NO_KSU }}
-             ${{ github.workspace }}/output/${{ env.ZIP_KSU }}
+            output/${{ env.ZIP_NO_KSU }}
+            output/${{ env.ZIP_KSU }}
           token: ${{ secrets.GITHUB_TOKEN }}
           name: KernelSU Release - ${{ env.KERNELSU_VERSION }}
           tag_name: ${{ github.run_id }}
           body: |
-             **Info:**
-              - KernelSU Version: ${{ env.KERNELSU_VERSION }}.
-              
-              **Installation:**
-              - Download desired zip file.
-              - Flash the zip file in recovery using sideload or any other method.
-            
-              <details>
-                <summary>Build Settings</summary>
-                  ```
-                  ${{ env.buildsettings }}
-                  ```
-              </details>
+            **Info:**
+             - KernelSU Version: ${{ env.KERNELSU_VERSION }}.
+             
+            **Installation:**
+             - Download desired zip file.
+             - Flash the zip file in recovery using sideload or any other method.
+           
+            <details>
+              <summary>Build Settings</summary>
+                ```
+                ${{ env.buildsettings }}
+                ```
+            </details>
           draft: false
           prerelease: false
