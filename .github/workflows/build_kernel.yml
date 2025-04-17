@@ -3,8 +3,6 @@ name: KernelSU Builder
 on:
   push:
   workflow_dispatch:
-  repository_dispatch:
-    types: [trigger-KernelSU-build]
 
 jobs:
   build:
