@@ -64,10 +64,9 @@ jobs:
           VERSION: ${{ matrix.version }}
           KERNELSU_VERSION: ${{ env.KERNELSU_VERSION }}
 
-      # Extract Kernel Image path
       - name: Extract Kernel Image path
         run: |
-          echo "KERNEL_IMAGE=${{ env.KERNEL_OUT_PATH }}/arch/arm64/boot/Image.gz-dtb" >> $GITHUB_ENV
+          echo "KERNEL_IMAGE=/home/runner/work/Kernel_Test/Kernel_Test/kernel/out/arch/arm64/boot/Image.gz-dtb" >> $GITHUB_ENV
 
       - name: Make a release
         uses: softprops/action-gh-release@v1
@@ -78,9 +77,12 @@ jobs:
           name: Kernel Release - ${{ env.VERSION }}
           tag_name: ${{ github.run_id }}
           body: |
-             **Info:**
-              - KernelSU Version: ${{ env.KERNELSU_VERSION }}.
-
+             **Info KERNELSU:**
+              - Kernel Version: ${{ env.VERSION }}.  
+              
+              **Installation:**
+              - Place Image.gz-dtb to /boot
+            
               <details>
                 <summary>Build Settings</summary>
                   ```
