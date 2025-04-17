@@ -1,4 +1,4 @@
-name: Kernel Bez SU
+name: KernelSU with Drivers
 
 on:
   push:
@@ -17,6 +17,8 @@ jobs:
       KBUILD_BUILD_HOST: Github-Action
       KBUILD_BUILD_USER: "Kernel_Builder"
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
+      CONFIG_FILE: "${{ github.workspace }}/kernel/arch/arm64/configs/your_defconfig"
+      DRIVERS_CONFIG: "${{ github.workspace }}/drivers.cfg"
 
     steps:
       - name: Checkout
@@ -49,8 +51,50 @@ jobs:
       - name: Add Clang to PATH
         run: |
           echo "${CLANG_PATH}" >> $GITHUB_PATH
-      #KERNEL SU 
-      - name: Set KERNELSU environment variable to true
+
+      # Kernel configuration modifications from drivers.cfg
+      - name: Apply drivers configuration
+        run: |
+          if [ -f "$DRIVERS_CONFIG" ]; then
+            echo "Applying drivers configuration from $DRIVERS_CONFIG"
+            
+            # Process each line in drivers.cfg
+            while IFS= read -r line; do
+              # Skip empty lines and comments
+              [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+              
+              # Extract config option and value
+              config_key=$(echo "$line" | cut -d'=' -f1)
+              config_value=$(echo "$line" | cut -d'=' -f2)
+              
+              # Remove quotes and trim whitespace
+              config_key=$(echo "$config_key" | xargs)
+              config_value=$(echo "$config_value" | xargs)
+              
+              echo "Processing: $config_key=$config_value"
+              
+              # Apply the config option
+              case "$config_value" in
+                "y")
+                  ./scripts/config --file $CONFIG_FILE --enable $config_key
+                  ;;
+                "n")
+                  ./scripts/config --file $CONFIG_FILE --disable $config_key
+                  ;;
+                *)
+                  ./scripts/config --file $CONFIG_FILE --set-val $config_key $config_value
+                  ;;
+              esac
+            done < "$DRIVERS_CONFIG"
+            
+            echo "Final config changes:"
+            grep -E "CONFIG_ATH9K|CONFIG_USB_NET" $CONFIG_FILE || true
+          else
+            echo "No drivers.cfg file found, skipping driver configuration"
+          fi
+
+      # KernelSU integration
+      - name: Set KERNELSU environment variable
         run: echo "KERNELSU=true" >> $GITHUB_ENV
 
       - name: Set KERNELSU_VERSION environment variable
@@ -61,35 +105,48 @@ jobs:
           chmod +x kernelSU.sh
           ./kernelSU.sh
 
-      - name: Compile kernel with KernelSU support
+      - name: Compile kernel
         run: |
           chmod +x build.sh
           ./build.sh
 
-      - name: Extract Kernel Image path
+      - name: Package kernel artifacts
         run: |
-          echo "KERNEL_IMAGE=/home/runner/work/Kernel_Test/Kernel_Test/kernel/out/arch/arm64/boot/Image.gz-dtb" >> $GITHUB_ENV
+          mkdir -p ${{ github.workspace }}/output
+          KERNEL_NAME="${VERSION}-$(date +%Y%m%d)"
+          
+          cp ${{ github.workspace }}/kernel/out/arch/arm64/boot/Image.gz-dtb ${{ github.workspace }}/output/
+          
+          if [ -d "${{ github.workspace }}/kernel/out/modules" ]; then
+            tar -czvf ${{ github.workspace }}/output/modules-${KERNEL_NAME}.tar.gz -C ${{ github.workspace }}/kernel/out/modules .
+          fi
+          
+          # Include used drivers.cfg in output
+          if [ -f "$DRIVERS_CONFIG" ]; then
+            cp "$DRIVERS_CONFIG" ${{ github.workspace }}/output/
+          fi
 
       - name: Make a release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-             ${{ env.KERNEL_IMAGE }}
+            output/Image.gz-dtb
+            output/modules-*.tar.gz
+            output/drivers.cfg
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: Kernel Release - ${{ env.VERSION }}
-          tag_name: ${{ github.run_id }}
+          name: Kernel ${{ env.VERSION }} - $(date +%Y%m%d)
+          tag_name: build-$(date +%Y%m%d-%H%M)
           body: |
-             **Info:**
-              - Kernel Version: ${{ env.VERSION }}.
-              
-              **Installation:**
-              - Place Image.gz-dtb to /boot
+            **Custom Kernel Build**
             
-              <details>
-                <summary>Build Settings</summary>
-                  ```
-                  ${{ env.buildsettings }}
-                  ```
-              </details>
-          draft: false
-          prerelease: false
+            **Build Info:**
+            - Version: ${{ env.VERSION }}
+            - KernelSU: ${{ env.KERNELSU_VERSION }}
+            - Drivers Config: $(if [ -f "$DRIVERS_CONFIG" ]; then echo "Applied"; else echo "None"; fi)
+            
+            **Installation:**
+            1. Flash Image.gz-dtb to your boot partition
+            2. Install modules (if included)
+            
+            **Included Drivers:**
+            $(if [ -f "$DRIVERS_CONFIG" ]; then cat "$DRIVERS_CONFIG"; else echo "No custom drivers configured"; fi)
