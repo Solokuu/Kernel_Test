@@ -118,8 +118,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-             ${{ github.workspace }}/${{ env.ZIP_NO_KSU }}
-             ${{ github.workspace }}/${{ env.ZIP_KSU }}
+             ${{ github.workspace }}/output/${{ env.ZIP_NO_KSU }}
+             ${{ github.workspace }}/output/${{ env.ZIP_KSU }}
           token: ${{ secrets.GITHUB_TOKEN }}
           name: KernelSU Release - ${{ env.KERNELSU_VERSION }}
           tag_name: ${{ github.run_id }}
