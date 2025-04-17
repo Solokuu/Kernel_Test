@@ -5,15 +5,7 @@ LineageOS-20:
     - git clone --depth=1 https://gitlab.com/Jprimero15/lolz_clang.git -b main
   config:
     - make O=out ARCH=arm64 lineage-nashc_defconfig
-  kernelSU_config:
-    - scripts/config --file out/.config --enable KPROBES
-    - scripts/config --file out/.config --enable OVERLAY_FS
-    - scripts/config --file out/.config --enable KPROBES_ON_FTRACE
-    - scripts/config --file out/.config --enable BPF_SYSCALL
-    - scripts/config --file out/.config --enable DEBUG_FS
   build:
-    - ARCH=arm64 CROSS_COMPILE="${PWD}/clang/bin/aarch64-linux-gnu-" CROSS_COMPILE_COMPAT="${PWD}/clang/bin/arm-linux-gnueabi" CROSS_COMPILE_ARM32="${PWD}/clang/bin/arm-linux-gnueabi-" CLANG_TRIPLE=aarch64-linux-gnu- make -j$(nproc --all) LLVM=1 LLVM_IAS=1 LD=ld.lld AR=llvm-ar NM=llvm-nm AS=llvm-as OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out
-  buildSU:
     - ARCH=arm64 CROSS_COMPILE="${PWD}/clang/bin/aarch64-linux-gnu-" CROSS_COMPILE_COMPAT="${PWD}/clang/bin/arm-linux-gnueabi" CROSS_COMPILE_ARM32="${PWD}/clang/bin/arm-linux-gnueabi-" CLANG_TRIPLE=aarch64-linux-gnu- make -j$(nproc --all) LLVM=1 LLVM_IAS=1 LD=ld.lld AR=llvm-ar NM=llvm-nm AS=llvm-as OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out
   target:
     - out/arch/arm64/boot/Image.gz-dtb
@@ -29,15 +21,7 @@ Zenitsu:
     - git clone --depth=1 https://gitlab.com/Jprimero15/lolz_clang.git -b main
   config:
     - make O=out ARCH=arm64 lineage-nashc_defconfig
-  kernelSU_config:
-    - scripts/config --file out/.config --enable KPROBES
-    - scripts/config --file out/.config --enable OVERLAY_FS
-    - scripts/config --file out/.config --enable KPROBES_ON_FTRACE
-    - scripts/config --file out/.config --enable BPF_SYSCALL
-    - scripts/config --file out/.config --enable DEBUG_FS
   build:
-    - ARCH=arm64 CROSS_COMPILE="${PWD}/clang/bin/aarch64-linux-gnu-" CROSS_COMPILE_COMPAT="${PWD}/clang/bin/arm-linux-gnueabi" CROSS_COMPILE_ARM32="${PWD}/clang/bin/arm-linux-gnueabi-" CLANG_TRIPLE=aarch64-linux-gnu- make -j$(nproc --all) LLVM=1 LLVM_IAS=1 LD=ld.lld AR=llvm-ar NM=llvm-nm AS=llvm-as OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out
-  buildSU:
     - ARCH=arm64 CROSS_COMPILE="${PWD}/clang/bin/aarch64-linux-gnu-" CROSS_COMPILE_COMPAT="${PWD}/clang/bin/arm-linux-gnueabi" CROSS_COMPILE_ARM32="${PWD}/clang/bin/arm-linux-gnueabi-" CLANG_TRIPLE=aarch64-linux-gnu- make -j$(nproc --all) LLVM=1 LLVM_IAS=1 LD=ld.lld AR=llvm-ar NM=llvm-nm AS=llvm-as OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out
   target:
     - out/arch/arm64/boot/Image.gz-dtb
@@ -53,15 +37,7 @@ DivestOS-13:
     - git clone --depth=1 https://gitlab.com/Jprimero15/lolz_clang.git -b main
   config:
     - make O=out ARCH=arm64 lineage-nashc_defconfig
-  kernelSU_config:
-    - scripts/config --file out/.config --enable KPROBES
-    - scripts/config --file out/.config --enable OVERLAY_FS
-    - scripts/config --file out/.config --enable KPROBES_ON_FTRACE
-    - scripts/config --file out/.config --enable BPF_SYSCALL
-    - scripts/config --file out/.config --enable DEBUG_FS
   build:
-    - ARCH=arm64 CROSS_COMPILE="${PWD}/clang/bin/aarch64-linux-gnu-" CROSS_COMPILE_COMPAT="${PWD}/clang/bin/arm-linux-gnueabi" CROSS_COMPILE_ARM32="${PWD}/clang/bin/arm-linux-gnueabi-" CLANG_TRIPLE=aarch64-linux-gnu- make -j$(nproc --all) LLVM=1 LLVM_IAS=1 LD=ld.lld AR=llvm-ar NM=llvm-nm AS=llvm-as OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out
-  buildSU:
     - ARCH=arm64 CROSS_COMPILE="${PWD}/clang/bin/aarch64-linux-gnu-" CROSS_COMPILE_COMPAT="${PWD}/clang/bin/arm-linux-gnueabi" CROSS_COMPILE_ARM32="${PWD}/clang/bin/arm-linux-gnueabi-" CLANG_TRIPLE=aarch64-linux-gnu- make -j$(nproc --all) LLVM=1 LLVM_IAS=1 LD=ld.lld AR=llvm-ar NM=llvm-nm AS=llvm-as OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out
   target:
     - out/arch/arm64/boot/Image.gz-dtb
@@ -69,6 +45,7 @@ DivestOS-13:
     - nashc
   kernelSU:
     - stable-pin
+
 
 Sage-Android-14:
   kernel:
@@ -77,15 +54,7 @@ Sage-Android-14:
     - git clone --depth=1 https://gitlab.com/Jprimero15/lolz_clang.git -b main
   config:
     - make O=out ARCH=arm64 lineage-nashc_defconfig
-  kernelSU_config:
-    - scripts/config --file out/.config --enable KPROBES
-    - scripts/config --file out/.config --enable OVERLAY_FS
-    - scripts/config --file out/.config --enable KPROBES_ON_FTRACE
-    - scripts/config --file out/.config --enable BPF_SYSCALL
-    - scripts/config --file out/.config --enable DEBUG_FS
   build:
-    - ARCH=arm64 CROSS_COMPILE="${PWD}/clang/bin/aarch64-linux-gnu-" CROSS_COMPILE_COMPAT="${PWD}/clang/bin/arm-linux-gnueabi" CROSS_COMPILE_ARM32="${PWD}/clang/bin/arm-linux-gnueabi-" CLANG_TRIPLE=aarch64-linux-gnu- make -j$(nproc --all) LLVM=1 LLVM_IAS=1 LD=ld.lld AR=llvm-ar NM=llvm-nm AS=llvm-as OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out
-  buildSU:
     - ARCH=arm64 CROSS_COMPILE="${PWD}/clang/bin/aarch64-linux-gnu-" CROSS_COMPILE_COMPAT="${PWD}/clang/bin/arm-linux-gnueabi" CROSS_COMPILE_ARM32="${PWD}/clang/bin/arm-linux-gnueabi-" CLANG_TRIPLE=aarch64-linux-gnu- make -j$(nproc --all) LLVM=1 LLVM_IAS=1 LD=ld.lld AR=llvm-ar NM=llvm-nm AS=llvm-as OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out
   target:
     - out/arch/arm64/boot/Image.gz-dtb
@@ -93,7 +62,7 @@ Sage-Android-14:
     - nashc
   kernelSU:
     - stable-pin
-
+    
 Clean:
   out:
     - rm -rf out
@@ -102,6 +71,7 @@ Clean:
   custom:
     - git status
 
+# Stable-pin version of KernelSU is used by KernelSU.sh to replace placeholder (kernelsu-version) with the newest stable version from ksu_version.txt
 KernelSU:
   version:
     stable-pin:
