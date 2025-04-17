@@ -49,8 +49,19 @@ jobs:
       - name: Add Clang to PATH
         run: |
           echo "${CLANG_PATH}" >> $GITHUB_PATH
+      #KERNEL SU 
+      - name: Set KERNELSU environment variable to true
+        run: echo "KERNELSU=true" >> $GITHUB_ENV
 
-      - name: Compile kernel
+      - name: Set KERNELSU_VERSION environment variable
+        run: echo "KERNELSU_VERSION=$(cat ksu_version.txt)" >> $GITHUB_ENV
+
+      - name: Add KernelSU support to kernel
+        run: |
+          chmod +x kernelSU.sh
+          ./kernelSU.sh
+
+      - name: Compile kernel with KernelSU support
         run: |
           chmod +x build.sh
           ./build.sh
