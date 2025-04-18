@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: ["LineageOS-20"]
+        version: ["LineageOS-20,Sage-Android-14"]
 
     env:
       VERSION: ${{ matrix.version }}
