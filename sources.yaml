@@ -12,7 +12,7 @@ LineageOS-20:
   anykernel:
     - nashc
   kernelSU:
-    - stable-pin
+    - stable
 
 Zenitsu:
   kernel:
@@ -61,7 +61,7 @@ Sage-Android-14:
   anykernel:
     - nashc
   kernelSU:
-    - stable-pin
+    - stable
     
 Clean:
   out:
@@ -75,7 +75,7 @@ Clean:
 KernelSU:
   version:
     stable-pin:
-      - curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v0.9.5
+      - curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v1.0.3
     stable:
       - curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
     unstable:
