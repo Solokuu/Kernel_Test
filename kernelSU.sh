@@ -1,31 +1,53 @@
 #!/bin/bash
 
-# Kolory
+# Define colors
 GREEN='\033[32m'
 RED='\033[31m'
-NC='\033[0m'
+YELLOW='\033[33m'
+NC='\033[0m' # No Color
 
-# Wersja KernelSU (1.0.3)
-KERNELSU_VERSION="v1.0.3"
+# Get version from environment
+version=${VERSION:-"LineageOS-20"}
+kernelsu_version=${KERNELSU_VERSION:-"v1.0.6"}
 
-# Przejdź do katalogu kernela (jeśli nie istnieje, utwórz)
-cd kernel || { mkdir -p kernel && cd kernel; }
+echo -e "${GREEN}[+] Preparing KernelSU-Next ${kernelsu_version} for ${version}${NC}"
 
-# Pobierz KernelSU (z ręcznym sprawdzeniem struktury)
-echo -e "${GREEN}[+] Applying KernelSU ${KERNELSU_VERSION}...${NC}"
-curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s "$KERNELSU_VERSION" || {
-    # Ręczna naprawa brakującego katalogu drivers/
-    if [ ! -d "drivers" ]; then
-        echo -e "${YELLOW}[!] Creating missing 'drivers/' directory...${NC}"
-        mkdir -p drivers
-        curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s "$KERNELSU_VERSION"
-    fi
+# Clone KernelSU-Next if not exists
+if [ ! -d "KernelSU-next" ]; then
+    echo -e "${YELLOW}[!] Cloning KernelSU-Next...${NC}"
+    git clone --depth=1 https://github.com/tiann/KernelSU-next.git -b "${kernelsu_version}" KernelSU-next || {
+        echo -e "${RED}[-] Failed to clone KernelSU-Next!${NC}"
+        exit 1
+    }
+fi
+
+# Apply KernelSU to kernel
+echo -e "${GREEN}[+] Applying KernelSU patches...${NC}"
+cd KernelSU-next && ./scripts/setup.sh ../kernel && cd .. || {
+    echo -e "${RED}[-] Failed to apply KernelSU patches!${NC}"
+    exit 1
 }
 
-# Kontynuuj tylko jeśli KernelSU został zastosowany
-if [ -d "KernelSU" ]; then
-    echo -e "${GREEN}[+] KernelSU applied successfully!${NC}"
-else
-    echo -e "${RED}[-] Failed to apply KernelSU!${NC}"
+# Enter kernel directory
+cd kernel || {
+    echo -e "${RED}[-] Kernel directory not found!${NC}"
     exit 1
+}
+
+# 4.14-specific fixes
+echo -e "${YELLOW}[!] Applying 4.14 compatibility patches...${NC}"
+
+# 1. Disable unsupported features
+sed -i 's/CONFIG_KSU_FSVERITY=y/CONFIG_KSU_FSVERITY=n/' KernelSU/.config 2>/dev/null
+sed -i 's/CONFIG_KSU_MEMFD_SECRET=y/CONFIG_KSU_MEMFD_SECRET=n/' KernelSU/.config 2>/dev/null
+
+# 2. Fix kallsyms lookup if missing
+if ! grep -q "kallsyms_lookup_name" KernelSU/kernel/ksu.c; then
+    echo -e "${YELLOW}[!] Patching kallsyms_lookup_name...${NC}"
+    echo -e "\n#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)\nvoid *kallsyms_lookup_name(const char *name) {\n    return (void *)0x$(grep ' kallsyms_lookup_name$' /proc/kallsyms | cut -d' ' -f1 2>/dev/null || echo 'FFFFFF12345678');\n}\n#endif\n" >> KernelSU/kernel/ksu.c
 fi
+
+# 3. Ensure drivers directory exists (critical for some kernels)
+mkdir -p drivers/KernelSU 2>/dev/null
+
+echo -e "${GREEN}[+] KernelSU-Next ${kernelsu_version} ready for compilation!${NC}"
