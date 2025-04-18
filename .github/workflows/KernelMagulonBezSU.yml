@@ -1,4 +1,4 @@
-name: Kernel Drivers v5
+name: Kernel Bez SU
 
 on:
   push:
@@ -17,7 +17,6 @@ jobs:
       KBUILD_BUILD_HOST: Github-Action
       KBUILD_BUILD_USER: "Kernel_Builder"
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
-      DRIVERS_CONFIG: "${{ github.workspace }}/drivers.cfg"
 
     steps:
       - name: Checkout
@@ -26,12 +25,14 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3 python3-pip jq
-          sudo pip3 install pyyaml
+          sudo apt install -y python3-pip jq libarchive-tools zip lib32z1-dev libbz2-dev pngcrush python-is-python3 libsdl1.2-dev autoconf libxml2-utils wget pkg-config unzip gawk imagemagick libc6-dev gcc-multilib patchelf gzip clang subversion optipng device-tree-compiler ccache gcc lzip rsync automake fastboot patch pngquant expat lzop libswitch-perl make libcap-dev adb libxml2 bison zlib1g-dev libtool squashfs-tools gperf flex libtinfo6 minicom liblz4-tool libmpfr-dev libssl-dev build-essential cmake g++-multilib re2c axel maven xsltproc g++ git git-lfs policycoreutils unrar ncurses-dev tree bc curl software-properties-common tar texinfo schedtool libc6-dev-i386 apt-utils
+          sudo pip3 install yq
+
       - name: Set up ccache
         run: |
           echo "/usr/lib/ccache" >> $GITHUB_PATH
           echo "USE_CCACHE=1" >> $GITHUB_ENV
+
       - name: Cache ccache
         uses: actions/cache@v4
         with:
@@ -39,13 +40,16 @@ jobs:
           key: ${{ runner.os }}-ccache-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ccache-
+
       - name: Clone clang and kernel sources
         run: |
           chmod +x clone.sh
           ./clone.sh
+
       - name: Add Clang to PATH
         run: |
           echo "${CLANG_PATH}" >> $GITHUB_PATH
+      #KERNEL SU 
       - name: Set KERNELSU environment variable to true
         run: echo "KERNELSU=true" >> $GITHUB_ENV
 
@@ -56,25 +60,36 @@ jobs:
         run: |
           chmod +x kernelSU.sh
           ./kernelSU.sh
-      - name: Build kernel with drivers
+
+      - name: Compile kernel with KernelSU support
         run: |
           chmod +x build.sh
           ./build.sh
+
+      - name: Extract Kernel Image path
+        run: |
+          echo "KERNEL_IMAGE=/home/runner/work/Kernel_Test/Kernel_Test/kernel/out/arch/arm64/boot/Image.gz-dtb" >> $GITHUB_ENV
+
       - name: Make a release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            kernel/out/arch/arm64/boot/Image.gz-dtb
+             ${{ env.KERNEL_IMAGE }}
           token: ${{ secrets.GITHUB_TOKEN }}
           name: Kernel Release - ${{ env.VERSION }}
           tag_name: ${{ github.run_id }}
           body: |
              **Info:**
               - Kernel Version: ${{ env.VERSION }}.
-              - KernelSU Version: ${{ env.KERNELSU_VERSION }}.
-              - Included Drivers: $(if [ -f "$DRIVERS_CONFIG" ]; then cat "$DRIVERS_CONFIG"; else echo "None"; fi)
               
               **Installation:**
               - Place Image.gz-dtb to /boot
+            
+              <details>
+                <summary>Build Settings</summary>
+                  ```
+                  ${{ env.buildsettings }}
+                  ```
+              </details>
           draft: false
           prerelease: false
