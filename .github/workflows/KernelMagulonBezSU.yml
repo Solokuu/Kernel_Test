@@ -1,4 +1,4 @@
-name: Kernel Drivers v4
+name: Kernel Drivers v5
 
 on:
   push:
@@ -17,7 +17,6 @@ jobs:
       KBUILD_BUILD_HOST: Github-Action
       KBUILD_BUILD_USER: "Kernel_Builder"
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
-      CONFIG_FILE: "${{ github.workspace }}/kernel/arch/arm64/configs/lineage-nashc_defconfig"
       DRIVERS_CONFIG: "${{ github.workspace }}/drivers.cfg"
 
     steps:
@@ -27,8 +26,8 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip jq libarchive-tools zip lib32z1-dev libbz2-dev pngcrush python-is-python3 libsdl1.2-dev autoconf libxml2-utils wget pkg-config unzip gawk imagemagick libc6-dev gcc-multilib patchelf gzip clang subversion optipng device-tree-compiler ccache gcc lzip rsync automake fastboot patch pngquant expat lzop libswitch-perl make libcap-dev adb libxml2 bison zlib1g-dev libtool squashfs-tools gperf flex libtinfo6 minicom liblz4-tool libmpfr-dev libssl-dev build-essential cmake g++-multilib re2c axel maven xsltproc g++ git git-lfs policycoreutils unrar ncurses-dev tree bc curl software-properties-common tar texinfo schedtool libc6-dev-i386 apt-utils
-          sudo pip3 install yq
+          sudo apt install -y python3 python3-pip jq
+          sudo pip3 install pyyaml
 
       - name: Set up ccache
         run: |
@@ -52,44 +51,6 @@ jobs:
         run: |
           echo "${CLANG_PATH}" >> $GITHUB_PATH
 
-      # Modyfikacja konfiguracji kernela
-      - name: Apply drivers configuration
-        run: |
-          cd ${{ github.workspace }}/kernel
-          
-          if [ -f "$DRIVERS_CONFIG" ]; then
-            echo "Applying drivers configuration from $DRIVERS_CONFIG"
-            
-            # Tworzenie kopii zapasowej konfiguracji
-            cp $CONFIG_FILE ${CONFIG_FILE}.bak
-            
-            # Przetwarzanie każdej linii z drivers.cfg
-            while IFS= read -r line; do
-              [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-              
-              config_key=$(echo "$line" | cut -d'=' -f1 | xargs)
-              config_value=$(echo "$line" | cut -d'=' -f2 | xargs)
-              
-              echo "Processing: $config_key=$config_value"
-              
-              # Usuń istniejące ustawienie jeśli istnieje
-              sed -i "/^$config_key[ =]/d" $CONFIG_FILE
-              sed -i "/^# $config_key is not set/d" $CONFIG_FILE
-              
-              # Dodaj nowe ustawienie
-              echo "$config_key=$config_value" >> $CONFIG_FILE
-            done < "$DRIVERS_CONFIG"
-            
-            echo "Config changes diff:"
-            diff -u ${CONFIG_FILE}.bak $CONFIG_FILE || true
-            
-            # Wymuś pełne przetworzenie konfiguracji
-            make O=out ARCH=arm64 lineage-nashc_defconfig
-          else
-            echo "No drivers.cfg file found, skipping driver configuration"
-          fi
-
-      # Reszta skryptu pozostaje bez zmian
       - name: Set KERNELSU environment variable to true
         run: echo "KERNELSU=true" >> $GITHUB_ENV
 
@@ -101,20 +62,16 @@ jobs:
           chmod +x kernelSU.sh
           ./kernelSU.sh
 
-      - name: Compile kernel with KernelSU support
+      - name: Build kernel with drivers
         run: |
           chmod +x build.sh
           ./build.sh
-
-      - name: Extract Kernel Image path
-        run: |
-          echo "KERNEL_IMAGE=/home/runner/work/Kernel_Test/Kernel_Test/kernel/out/arch/arm64/boot/Image.gz-dtb" >> $GITHUB_ENV
 
       - name: Make a release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-             ${{ env.KERNEL_IMAGE }}
+            kernel/out/arch/arm64/boot/Image.gz-dtb
           token: ${{ secrets.GITHUB_TOKEN }}
           name: Kernel Release - ${{ env.VERSION }}
           tag_name: ${{ github.run_id }}
@@ -126,12 +83,5 @@ jobs:
               
               **Installation:**
               - Place Image.gz-dtb to /boot
-            
-              <details>
-                <summary>Build Settings</summary>
-                  ```
-                  ${{ env.buildsettings }}
-                  ```
-              </details>
           draft: false
           prerelease: false
