@@ -10,10 +10,23 @@ then
     exit 1
 fi
 
+# Check if we're in kernel directory
+if [ ! -f "Makefile" ]; then
+    echo "Not in kernel source directory! Changing to kernel directory..."
+    cd kernel || exit 1
+fi
+
 # Apply drivers configuration if drivers.cfg exists
 if [ -f "../drivers.cfg" ]; then
     echo "Applying drivers configuration..."
     CONFIG_FILE="arch/arm64/configs/lineage-nashc_defconfig"
+    
+    if [ ! -f "$CONFIG_FILE" ]; then
+        echo "Error: Config file $CONFIG_FILE not found!"
+        echo "Available config files:"
+        find arch/arm64/configs/ -type f | sed 's/^/  /'
+        exit 1
+    fi
     
     # Create backup
     cp $CONFIG_FILE ${CONFIG_FILE}.bak
@@ -39,24 +52,30 @@ if [ -f "../drivers.cfg" ]; then
 fi
 
 # Convert the YAML file to JSON
-json=$(python3 -c "import sys, yaml, json; json.dump(yaml.safe_load(sys.stdin), sys.stdout)" < sources.yaml)
+json=$(python3 -c "import sys, yaml, json; json.dump(yaml.safe_load(sys.stdin), sys.stdout)" < sources.yaml 2>/dev/null)
 
 # Check if json is empty
 if [ -z "$json" ]
 then
-    echo "Failed to convert YAML to JSON. Exiting..."
-    exit 1
+    echo "Failed to convert YAML to JSON. Trying alternative method..."
+    json=$(python3 -c "import sys, yaml, json; print(json.dumps(yaml.safe_load(sys.stdin)))" < sources.yaml 2>/dev/null)
+    
+    if [ -z "$json" ]; then
+        echo "Failed to parse YAML. Exiting..."
+        exit 1
+    fi
 fi
 
 # Parse the JSON file
-config_commands=$(echo $json | jq -r --arg version "$version" '.[$version].config[]')
-build_commands=$(echo $json | jq -r --arg version "$version" '.[$version].build[]')
+config_commands=$(echo "$json" | jq -r --arg version "$version" '.[$version].config[]?')
+build_commands=$(echo "$json" | jq -r --arg version "$version" '.[$version].build[]?')
 
 # Check if config_commands and build_commands are empty
 if [ -z "$config_commands" ] || [ -z "$build_commands" ]
 then
-    echo "Failed to parse JSON. Exiting..."
-    exit 1
+    echo "Failed to parse JSON. Using default commands..."
+    config_commands="make O=out ARCH=arm64 lineage-nashc_defconfig"
+    build_commands="ARCH=arm64 CROSS_COMPILE=\"${PWD}/clang/bin/aarch64-linux-gnu-\" CROSS_COMPILE_COMPAT=\"${PWD}/clang/bin/arm-linux-gnueabi\" CROSS_COMPILE_ARM32=\"${PWD}/clang/bin/arm-linux-gnueabi-\" CLANG_TRIPLE=aarch64-linux-gnu- make -j$(nproc --all) LLVM=1 LLVM_IAS=1 LD=ld.lld AR=llvm-ar NM=llvm-nm AS=llvm-as OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=out"
 fi
 
 # Print the commands that will be executed
