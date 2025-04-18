@@ -12,15 +12,12 @@ kernelsu_version=${KERNELSU_VERSION:-"v1.0.6"}
 
 echo -e "${GREEN}[+] Preparing KernelSU-Next ${kernelsu_version} for ${version}${NC}"
 
-# Clone KernelSU-Next using raw Git URL
+# Clone KernelSU-Next from correct repository
 if [ ! -d "KernelSU-next" ]; then
     echo -e "${YELLOW}[!] Cloning KernelSU-Next...${NC}"
-    git clone https://git.kernel.org/pub/scm/linux/kernel/git/tiann/KernelSU-next.git -b "${kernelsu_version}" KernelSU-next || {
-        echo -e "${YELLOW}[!] Fallback to GitHub mirror...${NC}"
-        git clone https://github.com/tiann/KernelSU-next.git -b "${kernelsu_version}" KernelSU-next || {
-            echo -e "${RED}[-] Failed to clone KernelSU-Next from all sources!${NC}"
-            exit 1
-        }
+    git clone --depth=1 https://github.com/KernelSU-Next/KernelSU-next.git -b "${kernelsu_version}" KernelSU-next || {
+        echo -e "${RED}[-] Failed to clone KernelSU-Next!${NC}"
+        exit 1
     }
 fi
 
@@ -33,7 +30,7 @@ cd kernel || {
 
 # Apply KernelSU patches
 echo -e "${GREEN}[+] Applying KernelSU patches...${NC}"
-../KernelSU-next/scripts/setup.sh . || {
+../KernelSU-next/kernel/setup.sh . || {
     echo -e "${RED}[-] Failed to apply KernelSU patches!${NC}"
     exit 1
 }
