@@ -12,7 +12,7 @@ LineageOS-20:
   anykernel:
     - nashc
   kernelSU:
-    - unstable
+    - stable-pin
 
 Zenitsu:
   kernel:
