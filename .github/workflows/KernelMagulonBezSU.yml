@@ -17,7 +17,7 @@ jobs:
       KBUILD_BUILD_HOST: Github-Action
       KBUILD_BUILD_USER: "Kernel_Builder"
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
-
+      DRIVERS_CONFIG: "${{ github.workspace }}/drivers.cfg"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
