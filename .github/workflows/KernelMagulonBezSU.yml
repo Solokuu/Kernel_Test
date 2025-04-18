@@ -1,4 +1,4 @@
-name: Kernel Drivers v3
+name: Kernel Drivers v4
 
 on:
   push:
@@ -65,35 +65,31 @@ jobs:
             
             # Przetwarzanie każdej linii z drivers.cfg
             while IFS= read -r line; do
-              # Pomijanie pustych linii i komentarzy
               [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
               
-              # Ekstrakcja klucza i wartości
               config_key=$(echo "$line" | cut -d'=' -f1 | xargs)
               config_value=$(echo "$line" | cut -d'=' -f2 | xargs)
               
               echo "Processing: $config_key=$config_value"
               
-              # Modyfikacja pliku konfiguracyjnego
-              if grep -q "^$config_key=" $CONFIG_FILE; then
-                # Jeśli opcja już istnieje - zamień jej wartość
-                sed -i "s/^$config_key=.*/$config_key=$config_value/" $CONFIG_FILE
-              elif grep -q "^# $config_key is not set" $CONFIG_FILE; then
-                # Jeśli opcja jest wyłączona - włącz ją
-                sed -i "s/^# $config_key is not set/$config_key=$config_value/" $CONFIG_FILE
-              else
-                # Jeśli opcja nie istnieje - dodaj ją
-                echo "$config_key=$config_value" >> $CONFIG_FILE
-              fi
+              # Usuń istniejące ustawienie jeśli istnieje
+              sed -i "/^$config_key[ =]/d" $CONFIG_FILE
+              sed -i "/^# $config_key is not set/d" $CONFIG_FILE
+              
+              # Dodaj nowe ustawienie
+              echo "$config_key=$config_value" >> $CONFIG_FILE
             done < "$DRIVERS_CONFIG"
             
             echo "Config changes diff:"
             diff -u ${CONFIG_FILE}.bak $CONFIG_FILE || true
+            
+            # Wymuś pełne przetworzenie konfiguracji
+            make O=out ARCH=arm64 lineage-nashc_defconfig
           else
             echo "No drivers.cfg file found, skipping driver configuration"
           fi
 
-      # KernelSU integration
+      # Reszta skryptu pozostaje bez zmian
       - name: Set KERNELSU environment variable to true
         run: echo "KERNELSU=true" >> $GITHUB_ENV
 
@@ -126,6 +122,7 @@ jobs:
              **Info:**
               - Kernel Version: ${{ env.VERSION }}.
               - KernelSU Version: ${{ env.KERNELSU_VERSION }}.
+              - Included Drivers: $(if [ -f "$DRIVERS_CONFIG" ]; then cat "$DRIVERS_CONFIG"; else echo "None"; fi)
               
               **Installation:**
               - Place Image.gz-dtb to /boot
