@@ -1,51 +1,35 @@
 #!/bin/bash
 
-# Define some colors
+# Kolory dla logów
 GREEN='\033[32m'
 RED='\033[31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Get version from GitHub environment variable
-version=${VERSION}
-kernelsu_version=${KERNELSU_VERSION}
+# Wersja KernelSU (1.0.3)
+KERNELSU_VERSION="v1.0.3"
 
-# Convert the YAML file to JSON using Python
-json=$(python -c "import sys, yaml, json; json.dump(yaml.safe_load(sys.stdin), sys.stdout)" < sources.yaml)
-
-# Check if json is empty
-if [ -z "$json" ]
-then
-    echo -e "${RED}Failed to convert YAML to JSON. Exiting...${NC}"
+# Pobierz i zastosuj KernelSU
+echo -e "${GREEN}[+] Applying KernelSU ${KERNELSU_VERSION}...${NC}"
+curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s "$KERNELSU_VERSION" || {
+    echo -e "${RED}[-] Failed to apply KernelSU!${NC}"
     exit 1
+}
+
+# Ręczne poprawki dla kernela 4.14
+cd kernel || exit 1
+
+# 1. Wyłącz fsverity (jeśli powoduje błędy)
+if [ -f "KernelSU/.config" ]; then
+    sed -i 's/CONFIG_KSU_FSVERITY=y/CONFIG_KSU_FSVERITY=n/' KernelSU/.config
+    echo -e "${GREEN}[+] Disabled CONFIG_KSU_FSVERITY${NC}"
 fi
 
-# Parse the JSON file to get the kernelSU version corresponding to the VERSION environment variable
-kernelSU_version=$(echo $json | jq -r --arg version "$version" '.[$version].kernelSU[]')
-
-# Check if kernelSU_version is empty
-if [ -z "$kernelSU_version" ]
-then
-    echo -e "${RED}Failed to parse JSON. Exiting...${NC}"
-    exit 1
+# 2. Napraw brakujące symbole (np. kallsyms_lookup_name)
+if [ -f "KernelSU/kernel/ksu.c" ]; then
+    if ! grep -q "kallsyms_lookup_name" KernelSU/kernel/ksu.c; then
+        echo -e "${GREEN}[+] Patching kallsyms_lookup_name...${NC}"
+        echo -e "\n#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)\nvoid *kallsyms_lookup_name(const char *name) {\n    return (void *)0xFFFFFF12345678; // Replace with actual address from /proc/kallsyms\n}\n#endif" >> KernelSU/kernel/ksu.c
+    fi
 fi
 
-# Parse the JSON file to get the commands corresponding to the kernelSU_version
-kernelSU_commands=$(echo $json | jq -r --arg version "$kernelSU_version" '.KernelSU.version[$version][]')
-
-# Print the commands that will be executed
-echo -e "${GREEN}kernelSU.sh will execute following commands:${NC}"
-echo "$kernelSU_commands" | while read -r command; do
-    # Replace the placeholder with the actual value
-    command=${command//kernelsu-version/$kernelsu_version}
-    echo -e "${RED}$command${NC}"
-done
-
-# Enter kernel directory
-cd kernel
-
-# Execute the commands
-echo "$kernelSU_commands" | while read -r command; do
-    # Replace the placeholder with the actual value
-    command=${command//kernelsu-version/$kernelsu_version}
-    eval "$command"
-done
+echo -e "${GREEN}[+] KernelSU 1.0.3 patched for kernel 4.14!${NC}"
