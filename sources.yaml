@@ -75,8 +75,7 @@ Clean:
 KernelSU:
   version:
     stable-pin:
-      - git clone --depth=1 https://github.com/tiann/KernelSU-next.git -b v1.0.6 KernelSU-next
-      - cd KernelSU-next && ./scripts/setup.sh ../kernel && cd ..
+      - v1.0.6
       #- curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s v1.0.3
     stable:
       - curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
