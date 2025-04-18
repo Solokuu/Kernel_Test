@@ -16,17 +16,25 @@ jobs:
       ARCH: arm64
       KBUILD_BUILD_HOST: Github-Action
       KBUILD_BUILD_USER: "Kernel_Builder"
-      CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
+      CLANG_PATH: ${{ github.workspace }}/clang/bin
+      DRIVERS_CONFIG: "${{ github.workspace }}/drivers.cfg"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify files
+        run: |
+          echo "Repository contents:"
+          ls -la
+          echo "KernelSU files:"
+          ls -la kernelSU.sh build.sh clone.sh || true
+
       - name: Install build dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip jq libarchive-tools zip lib32z1-dev libbz2-dev pngcrush python-is-python3 libsdl1.2-dev autoconf libxml2-utils wget pkg-config unzip gawk imagemagick libc6-dev gcc-multilib patchelf gzip clang subversion optipng device-tree-compiler ccache gcc lzip rsync automake fastboot patch pngquant expat lzop libswitch-perl make libcap-dev adb libxml2 bison zlib1g-dev libtool squashfs-tools gperf flex libtinfo6 minicom liblz4-tool libmpfr-dev libssl-dev build-essential cmake g++-multilib re2c axel maven xsltproc g++ git git-lfs policycoreutils unrar ncurses-dev tree bc curl software-properties-common tar texinfo schedtool libc6-dev-i386 apt-utils
-          sudo pip3 install yq
+          sudo apt install -y python3 python3-pip jq
+          sudo pip3 install pyyaml
 
       - name: Set up ccache
         run: |
@@ -49,47 +57,51 @@ jobs:
       - name: Add Clang to PATH
         run: |
           echo "${CLANG_PATH}" >> $GITHUB_PATH
-      #KERNEL SU 
+
       - name: Set KERNELSU environment variable to true
         run: echo "KERNELSU=true" >> $GITHUB_ENV
 
       - name: Set KERNELSU_VERSION environment variable
         run: echo "KERNELSU_VERSION=$(cat ksu_version.txt)" >> $GITHUB_ENV
 
-      - name: Add KernelSU support to kernel
+      - name: Add KernelSU support
         run: |
-          chmod +x kernelSU.sh
-          ./kernelSU.sh
+          if [ -f "kernelSU.sh" ]; then
+            chmod +x kernelSU.sh
+            ./kernelSU.sh
+          else
+            echo "kernelSU.sh not found, using alternative method"
+            curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s $KERNELSU_VERSION
+          fi
 
-      - name: Compile kernel with KernelSU support
+      - name: Prepare artifacts
         run: |
-          chmod +x build.sh
-          ./build.sh
-
-      - name: Extract Kernel Image path
-        run: |
-          echo "KERNEL_IMAGE=/home/runner/work/Kernel_Test/Kernel_Test/kernel/out/arch/arm64/boot/Image.gz-dtb" >> $GITHUB_ENV
+          mkdir -p artifacts
+          if [ -f "kernel/out/arch/arm64/boot/Image.gz-dtb" ]; then
+            cp kernel/out/arch/arm64/boot/Image.gz-dtb artifacts/
+          elif [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
+            cp out/arch/arm64/boot/Image.gz-dtb artifacts/
+          else
+            echo "Error: Kernel image not found!"
+            find . -name "Image.gz-dtb"
+            exit 1
+          fi
 
       - name: Make a release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-             ${{ env.KERNEL_IMAGE }}
+            artifacts/Image.gz-dtb
           token: ${{ secrets.GITHUB_TOKEN }}
           name: Kernel Release - ${{ env.VERSION }}
           tag_name: ${{ github.run_id }}
           body: |
              **Info:**
-              - Kernel Version: ${{ env.VERSION }}.
+              - Kernel Version: ${{ env.VERSION }}
+              - KernelSU Version: ${{ env.KERNELSU_VERSION }}
+              - Included Drivers: $(if [ -f "$DRIVERS_CONFIG" ]; then cat "$DRIVERS_CONFIG"; else echo "None"; fi)
               
               **Installation:**
               - Place Image.gz-dtb to /boot
-            
-              <details>
-                <summary>Build Settings</summary>
-                  ```
-                  ${{ env.buildsettings }}
-                  ```
-              </details>
           draft: false
           prerelease: false
