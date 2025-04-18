@@ -12,7 +12,7 @@ LineageOS-20:
   anykernel:
     - nashc
   kernelSU:
-    - stable
+    - unstable
 
 Zenitsu:
   kernel:
@@ -28,7 +28,7 @@ Zenitsu:
   anykernel:
     - nashc
   kernelSU:
-    - stable-pin
+    - unstable
 
 DivestOS-13:
   kernel:
@@ -44,7 +44,7 @@ DivestOS-13:
   anykernel:
     - nashc
   kernelSU:
-    - stable-pin
+    - unstable
 
 
 Sage-Android-14:
@@ -61,7 +61,7 @@ Sage-Android-14:
   anykernel:
     - nashc
   kernelSU:
-    - stable
+    - unstable
     
 Clean:
   out:
