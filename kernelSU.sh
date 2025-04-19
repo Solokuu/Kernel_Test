@@ -39,10 +39,7 @@ echo -e "${GREEN}[+] Applying KernelSU patches...${NC}"
 echo -e "${YELLOW}[!] Applying 4.14 compatibility patches...${NC}"
 
 # 1. Disable unsupported features
-[ -f "KernelSU/.config" ] && {
-    sed -i 's/CONFIG_KSU_FSVERITY=y/CONFIG_KSU_FSVERITY=n/' KernelSU/.config
-    sed -i 's/CONFIG_KSU_MEMFD_SECRET=y/CONFIG_KSU_MEMFD_SECRET=n/' KernelSU/.config
-}
+
 
 # 2. Fix kallsyms lookup if missing
 if [ -f "KernelSU/kernel/ksu.c" ] && ! grep -q "kallsyms_lookup_name" KernelSU/kernel/ksu.c; then
