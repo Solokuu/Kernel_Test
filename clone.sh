@@ -35,3 +35,52 @@ done
 echo "$clang_commands" | while read -r command; do
     eval "$command kernel/clang"
 done
+
+# =============================================
+# Atheros AR9271 firmware installation section
+# =============================================
+
+echo -e "\033[34m\nInstalling Atheros AR9271 firmware...\033[0m"
+
+# Define paths
+FIRMWARE_URL="https://github.com/OpenELEC/wlan-firmware/raw/master/firmware/ath9k_htc/htc_9271-1.4.0.fw"
+FIRMWARE_DIR="kernel/drivers/net/wireless/ath/ath9k/firmware"
+KCONFIG_FILE="kernel/drivers/net/wireless/ath/ath9k/Kconfig"
+
+# Create firmware directory if it doesn't exist
+mkdir -p "$FIRMWARE_DIR"
+
+# Download the firmware
+echo "Downloading firmware from ${FIRMWARE_URL}..."
+wget -q "$FIRMWARE_URL" -O "${FIRMWARE_DIR}/htc_9271.fw"
+if [ $? -ne 0 ]; then
+    echo -e "\033[31mFailed to download firmware!\033[0m"
+    exit 1
+fi
+
+# Update Kconfig to include firmware path
+echo "Updating Kconfig file..."
+if grep -q "ATH9K_HTC_FW_PATH" "$KCONFIG_FILE"; then
+    # Update existing configuration
+    sed -i 's|default "ath9k_htc/htc_9271.fw"|default "firmware/htc_9271.fw"|' "$KCONFIG_FILE"
+else
+    # Add new configuration
+    cat <<EOT >> "$KCONFIG_FILE"
+
+config ATH9K_HTC_FW_PATH
+    string "Firmware path for Atheros HTC based wireless cards"
+    default "firmware/htc_9271.fw"
+    help
+      This sets the firmware path for Atheros HTC based wireless cards.
+      Default is firmware/htc_9271.fw
+EOT
+fi
+
+# Update Makefile to ensure driver is built
+MAKEFILE="kernel/drivers/net/wireless/ath/ath9k/Makefile"
+if ! grep -q "ath9k_htc" "$MAKEFILE"; then
+    echo "obj-\$(CONFIG_ATH9K_HTC) += ath9k_htc.o" >> "$MAKEFILE"
+fi
+
+echo -e "\033[32mFirmware installation completed successfully!\033[0m"
+echo -e "\033[33mDon't forget to enable CONFIG_ATH9K_HTC in your kernel config!\033[0m"
