@@ -2,6 +2,7 @@ name: Realme 8 NetHunter Kernel Builder
 
 on:
   push:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -14,43 +15,43 @@ jobs:
     env:
       VERSION: ${{ matrix.version }}
       ARCH: arm64
-      KBUILD_BUILD_HOST: Github-Action
-      KBUILD_BUILD_USER: "Kernel_Builder"
+      DEVICE_CODENAME: nashc
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
       DRIVERS_CONFIG: "${{ github.workspace }}/drivers.cfg"
-      DEVICE_CODENAME: nashc
+      NH_DIR: "${{ github.workspace }}/nethunter"
+      ANY_KERNEL_DIR: "${{ github.workspace }}/AnyKernel3"
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install build dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip jq libarchive-tools zip lib32z1-dev libbz2-dev pngcrush python-is-python3 libsdl1.2-dev autoconf libxml2-utils wget pkg-config unzip gawk imagemagick libc6-dev gcc-multilib patchelf gzip clang subversion optipng device-tree-compiler ccache gcc lzip rsync automake fastboot patch pngquant expat lzop libswitch-perl make libcap-dev adb libxml2 bison zlib1g-dev libtool squashfs-tools gperf flex libtinfo6 minicom liblz4-tool libmpfr-dev libssl-dev build-essential cmake g++-multilib re2c axel maven xsltproc g++ git git-lfs policycoreutils unrar ncurses-dev tree bc curl software-properties-common tar texinfo schedtool libc6-dev-i386 apt-utils
+          sudo apt install -y python3-pip jq zip unzip wget bc build-essential \
+          ccache clang cmake flex g++ gcc git libncurses-dev libssl-dev \
+          make python3 python3-dev rsync sed tar zlib1g-dev
           pip install yq --user
 
       - name: Set up ccache
         run: |
           echo "/usr/lib/ccache" >> $GITHUB_PATH
           echo "USE_CCACHE=1" >> $GITHUB_ENV
+          echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
+          mkdir -p ${{ github.workspace }}/.ccache
 
       - name: Cache ccache
         uses: actions/cache@v4
         with:
-          path: ~/.ccache
+          path: ${{ github.workspace }}/.ccache
           key: ${{ runner.os }}-ccache-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ccache-
 
-      - name: Clone sources
+      - name: Clone kernel sources
         run: |
           chmod +x clone.sh
           ./clone.sh
-
-      - name: Add Clang to PATH
-        run: |
-          echo "${CLANG_PATH}" >> $GITHUB_PATH
 
       - name: Add NetHunter config
         run: |
@@ -61,52 +62,61 @@ jobs:
           echo "CONFIG_USB_LIBCOMPOSITE=y" >> ${{ env.DRIVERS_CONFIG }}
           echo "CONFIG_HID=y" >> ${{ env.DRIVERS_CONFIG }}
           echo "CONFIG_HID_GENERIC=y" >> ${{ env.DRIVERS_CONFIG }}
+          echo 'CONFIG_ATH9K_HTC_FW_PATH="ath9k_htc/htc_9271-1.4.0.fw"' >> ${{ env.DRIVERS_CONFIG }}
 
       - name: Build kernel
         run: |
           chmod +x build.sh
           ./build.sh
 
-      - name: Create basic flashable zip
+      - name: Clone AnyKernel3
         run: |
-          mkdir -p nethunter-package/META-INF/com/google/android
+          git clone https://github.com/osm0sis/AnyKernel3 ${{ env.ANY_KERNEL_DIR }}
+          cp ${{ github.workspace }}/anykernel.sh ${{ env.ANY_KERNEL_DIR }}/
+
+      - name: Download WiFi firmware
+        run: |
+          mkdir -p ${{ env.ANY_KERNEL_DIR }}/firmware/ath9k_htc
+          wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/ath9k_htc/htc_9271-1.4.0.fw \
+          -O ${{ env.ANY_KERNEL_DIR }}/firmware/ath9k_htc/htc_9271-1.4.0.fw
+
+      - name: Prepare AnyKernel package
+        run: |
+          cp kernel/out/arch/arm64/boot/Image.gz-dtb ${{ env.ANY_KERNEL_DIR }}/
+          find kernel/out -name "*.ko" -exec cp {} ${{ env.ANY_KERNEL_DIR }}/modules/ \;
           
-          # Create minimal updater script
-          cat > nethunter-package/META-INF/com/google/android/updater-script <<'EOF'
-          ui_print("Custom NetHunter for Realme 8");
-          package_extract_file("Image.gz-dtb", "/dev/block/bootdevice/by-name/boot");
-          ui_print("Installation complete!");
-          EOF
-          
-          # Get simple update-binary
-          wget https://raw.githubusercontent.com/LineageOS/android_bootable_recovery/lineage-20/prebuilt/update-binary -O nethunter-package/META-INF/com/google/android/update-binary
-          
-          # Copy kernel image
-          cp kernel/out/arch/arm64/boot/Image.gz-dtb nethunter-package/
-          
-          # Create zip
-          cd nethunter-package
-          zip -r9 ../nethunter-${{ env.DEVICE_CODENAME }}.zip *
-          echo "KERNEL_ZIP=nethunter-${{ env.DEVICE_CODENAME }}.zip" >> $GITHUB_ENV
+          # Modify anykernel.sh
+          sed -i 's/do.devicecheck=1/do.devicecheck=0/' ${{ env.ANY_KERNEL_DIR }}/anykernel.sh
+          sed -i "s/device.name1=.*/device.name1=${{ env.DEVICE_CODENAME }}/" ${{ env.ANY_KERNEL_DIR }}/anykernel.sh
+          echo 'package_extract_dir("firmware", "/system/etc/firmware");' >> ${{ env.ANY_KERNEL_DIR }}/anykernel.sh
+
+      - name: Create flashable zip
+        run: |
+          cd ${{ env.ANY_KERNEL_DIR }}
+          zip -r9 ../nethunter-${{ env.DEVICE_CODENAME }}-$(date +%Y%m%d).zip *
+          echo "FLASHABLE_ZIP=nethunter-${{ env.DEVICE_CODENAME }}-$(date +%Y%m%d).zip" >> $GITHUB_ENV
 
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            nethunter-${{ env.DEVICE_CODENAME }}.zip
-            kernel/out/arch/arm64/boot/Image.gz-dtb
+            nethunter-${{ env.DEVICE_CODENAME }}-*.zip
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: NetHunter ${{ env.VERSION }}
+          name: NetHunter ${{ env.VERSION }} ($(date +%Y-%m-%d))
           tag_name: nethunter-${{ env.DEVICE_CODENAME }}-$(date +%Y%m%d)
           body: |
-            **Custom NetHunter Kernel for Realme 8**
+            **NetHunter Kernel for Realme 8 (nashc)**
             
-            **Includes:**
-            - All NetHunter kernel features
-            - Pre-configured drivers
+            **Features:**
+            - Full NetHunter compatibility
+            - AnyKernel3 installation
+            - Includes ath9k_htc firmware
+            - Built with Clang
             
             **Installation:**
-            1. Flash zip in recovery
-            2. For modules: manually copy .ko files to /system/lib/modules
+            1. Flash in TWRP recovery
+            2. Reboot
+            
+            **Note:** Includes WiFi injection support for AR9271
           draft: false
           prerelease: false
