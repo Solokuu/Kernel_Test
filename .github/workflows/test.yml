@@ -18,8 +18,6 @@ jobs:
       DEVICE_CODENAME: nashc
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
       DRIVERS_CONFIG: "${{ github.workspace }}/drivers.cfg"
-      NH_DIR: "${{ github.workspace }}/nethunter"
-      ANY_KERNEL_DIR: "${{ github.workspace }}/AnyKernel3"
 
     steps:
       - name: Checkout repository
@@ -59,9 +57,7 @@ jobs:
           echo "CONFIG_OVERLAY_FS=y" >> ${{ env.DRIVERS_CONFIG }}
           echo "CONFIG_USB_CONFIGFS=y" >> ${{ env.DRIVERS_CONFIG }}
           echo "CONFIG_USB_CONFIGFS_F_HID=y" >> ${{ env.DRIVERS_CONFIG }}
-          echo "CONFIG_USB_LIBCOMPOSITE=y" >> ${{ env.DRIVERS_CONFIG }}
-          echo "CONFIG_HID=y" >> ${{ env.DRIVERS_CONFIG }}
-          echo "CONFIG_HID_GENERIC=y" >> ${{ env.DRIVERS_CONFIG }}
+          echo "CONFIG_ATH9K_HTC=y" >> ${{ env.DRIVERS_CONFIG }}
           echo 'CONFIG_ATH9K_HTC_FW_PATH="ath9k_htc/htc_9271-1.4.0.fw"' >> ${{ env.DRIVERS_CONFIG }}
 
       - name: Build kernel
@@ -69,30 +65,53 @@ jobs:
           chmod +x build.sh
           ./build.sh
 
-      - name: Clone AnyKernel3
+      - name: Prepare NetHunter package
         run: |
-          git clone https://github.com/osm0sis/AnyKernel3 ${{ env.ANY_KERNEL_DIR }}
-          cp ${{ github.workspace }}/anykernel.sh ${{ env.ANY_KERNEL_DIR }}/
-
-      - name: Download WiFi firmware
-        run: |
-          mkdir -p ${{ env.ANY_KERNEL_DIR }}/firmware/ath9k_htc
-          wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/ath9k_htc/htc_9271-1.4.0.fw \
-          -O ${{ env.ANY_KERNEL_DIR }}/firmware/ath9k_htc/htc_9271-1.4.0.fw
-
-      - name: Prepare AnyKernel package
-        run: |
-          cp kernel/out/arch/arm64/boot/Image.gz-dtb ${{ env.ANY_KERNEL_DIR }}/
-          find kernel/out -name "*.ko" -exec cp {} ${{ env.ANY_KERNEL_DIR }}/modules/ \;
+          # Create directory structure
+          mkdir -p nethunter-package/{META-INF/com/google/android,system/lib/modules,system/etc/firmware/ath9k_htc}
           
-          # Modify anykernel.sh
-          sed -i 's/do.devicecheck=1/do.devicecheck=0/' ${{ env.ANY_KERNEL_DIR }}/anykernel.sh
-          sed -i "s/device.name1=.*/device.name1=${{ env.DEVICE_CODENAME }}/" ${{ env.ANY_KERNEL_DIR }}/anykernel.sh
-          echo 'package_extract_dir("firmware", "/system/etc/firmware");' >> ${{ env.ANY_KERNEL_DIR }}/anykernel.sh
+          # Create minimal update-binary
+          cat > nethunter-package/META-INF/com/google/android/update-binary <<'EOF'
+          #!/sbin/sh
+          OUTFD=$2
+          ui_print() { echo -e "ui_print $1\n" > /proc/self/fd/$OUTFD; }
+          
+          ui_print "Installing NetHunter for Realme 8"
+          mount /system || ui_print "Warning: Could not mount /system"
+          
+          # Flash kernel
+          dd if=/tmp/Image.gz-dtb of=/dev/block/bootdevice/by-name/boot && ui_print "Kernel flashed" || ui_print "Flash failed!"
+          
+          # Install firmware
+          mkdir -p /system/etc/firmware/ath9k_htc
+          cp /tmp/system/etc/firmware/ath9k_htc/htc_9271-1.4.0.fw /system/etc/firmware/ath9k_htc/
+          chmod 0644 /system/etc/firmware/ath9k_htc/htc_9271-1.4.0.fw
+          
+          umount /system 2>/dev/null
+          ui_print "Installation complete"
+          EOF
+          chmod +x nethunter-package/META-INF/com/google/android/update-binary
+          
+          # Download WiFi firmware
+          wget https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/ath9k_htc/htc_9271-1.4.0.fw -O nethunter-package/system/etc/firmware/ath9k_htc/htc_9271-1.4.0.fw
+          
+          # Copy kernel image
+          cp kernel/out/arch/arm64/boot/Image.gz-dtb nethunter-package/
+          
+          # Copy kernel modules
+          find kernel/out -name "*.ko" -exec cp {} nethunter-package/system/lib/modules/ \;
+          
+          # Create updater-script
+          cat > nethunter-package/META-INF/com/google/android/updater-script <<'EOF'
+          ui_print("NetHunter Installer");
+          package_extract_file("Image.gz-dtb", "/tmp/Image.gz-dtb");
+          package_extract_dir("system", "/tmp/system");
+          run_program("/META-INF/com/google/android/update-binary", "dummy_arg", "1");
+          EOF
 
       - name: Create flashable zip
         run: |
-          cd ${{ env.ANY_KERNEL_DIR }}
+          cd nethunter-package
           zip -r9 ../nethunter-${{ env.DEVICE_CODENAME }}-$(date +%Y%m%d).zip *
           echo "FLASHABLE_ZIP=nethunter-${{ env.DEVICE_CODENAME }}-$(date +%Y%m%d).zip" >> $GITHUB_ENV
 
@@ -107,16 +126,15 @@ jobs:
           body: |
             **NetHunter Kernel for Realme 8 (nashc)**
             
-            **Features:**
-            - Full NetHunter compatibility
-            - AnyKernel3 installation
-            - Includes ath9k_htc firmware
-            - Built with Clang
+            **Includes:**
+            - Kernel with NetHunter patches
+            - ath9k_htc firmware (AR9271 support)
+            - All required kernel modules
             
             **Installation:**
             1. Flash in TWRP recovery
             2. Reboot
             
-            **Note:** Includes WiFi injection support for AR9271
+            **Note:** For WiFi injection, use compatible USB adapters
           draft: false
           prerelease: false
