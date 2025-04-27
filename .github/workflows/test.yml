@@ -17,6 +17,7 @@ jobs:
       KBUILD_BUILD_HOST: Github-Action
       KBUILD_BUILD_USER: "NetHunter_Builder"
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
+      DRIVERS_CONFIG: "${{ github.workspace }}/drivers.cfg"
       DEVICE_CODENAME: nashc
 
     steps:
@@ -33,18 +34,16 @@ jobs:
         run: |
           echo "/usr/lib/ccache" >> $GITHUB_PATH
           echo "USE_CCACHE=1" >> $GITHUB_ENV
-          echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
-          mkdir -p ${{ github.workspace }}/.ccache
 
       - name: Cache ccache
         uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/.ccache
+          path: ~/.ccache
           key: ${{ runner.os }}-ccache-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-ccache-
 
-      - name: Clone toolchains and kernel sources
+      - name: Clone clang and kernel sources
         run: |
           chmod +x clone.sh
           ./clone.sh
@@ -53,43 +52,29 @@ jobs:
         run: |
           echo "${CLANG_PATH}" >> $GITHUB_PATH
 
-      - name: Clone Kali NetHunter Kernel Builder
+      - name: Clone NetHunter builder
         run: |
           git clone --depth=1 https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder.git nethunter-builder
+          cp ${{ env.DRIVERS_CONFIG }} nethunter-builder/drivers.cfg
 
       - name: Apply NetHunter patches
         run: |
           cd kernel
-          for patch in nethunter-builder/patches/*.patch; do
-            patch -p1 < $patch || true
+          for patch in ../nethunter-builder/patches/*.patch; do
+            [ -f "$patch" ] && patch -p1 < $patch || echo "Patch $patch not found, skipping"
           done
 
-      - name: Configure kernel
+      - name: Build kernel with NetHunter support
         run: |
-          cd kernel
-          make O=out ARCH=${{ env.ARCH }} CC="${{ env.CLANG_PATH }}/clang" nashc_defconfig
-          # Basic NetHunter config
-          ./scripts/config --file out/.config \
-            --enable CONFIG_OVERLAY_FS \
-            --enable CONFIG_USB_CONFIGFS_F_HID \
-            --enable CONFIG_HID \
-            --enable CONFIG_USB_CONFIGFS \
-            --enable CONFIG_USB_LIBCOMPOSITE \
-            --enable CONFIG_CONFIGFS_FS \
-            --enable CONFIG_USB_GADGET
-
-      - name: Build kernel
-        run: |
-          cd kernel
-          make -j$(nproc --all) O=out ARCH=${{ env.ARCH }} CC="${{ env.CLANG_PATH }}/clang"
-          cp out/arch/arm64/boot/Image.gz-dtb ${{ github.workspace }}/Image.gz-dtb
+          chmod +x build.sh
+          ./build.sh
 
       - name: Package NetHunter kernel
         run: |
           cd nethunter-builder
           mkdir -p out
-          cp ${{ github.workspace }}/Image.gz-dtb out/
-          ./build.sh --device ${{ env.DEVICE_CODENAME }} --kernel ${{ github.workspace }}/Image.gz-dtb
+          cp ../kernel/out/arch/arm64/boot/Image.gz-dtb out/
+          ./build.sh --device ${{ env.DEVICE_CODENAME }} --kernel out/Image.gz-dtb
 
       - name: Make a release
         uses: softprops/action-gh-release@v1
@@ -97,18 +82,24 @@ jobs:
           files: |
             nethunter-builder/out/*.zip
             nethunter-builder/out/*.img
+            kernel/out/arch/arm64/boot/Image.gz-dtb
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: NetHunter Kernel - ${{ env.DEVICE_CODENAME }} - ${{ env.VERSION }}
-          tag_name: nethunter-${{ env.DEVICE_CODENAME }}-${{ github.run_id }}
+          name: NetHunter Kernel - ${{ env.VERSION }}
+          tag_name: ${{ github.run_id }}
           body: |
-            **NetHunter Kernel for Realme 8 (nashc)**
+             **Info:**
+              - Kernel Version: ${{ env.VERSION }}
+              - Device: ${{ env.DEVICE_CODENAME }}
+              
+              **Installation:**
+              - Flash the zip file in recovery for full NetHunter
+              - Or flash Image.gz-dtb for kernel only
             
-            **Build Info:**
-            - Kernel Version: ${{ env.VERSION }}
-            - Device: ${{ env.DEVICE_CODENAME }}
-            
-            **Installation:**
-            1. Flash the zip file in custom recovery
-            2. Reboot
+              <details>
+                <summary>Build Settings</summary>
+                  ```
+                  ${{ env.buildsettings }}
+                  ```
+              </details>
           draft: false
           prerelease: false
