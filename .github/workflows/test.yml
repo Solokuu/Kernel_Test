@@ -28,8 +28,13 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip jq libarchive-tools zip lib32z1-dev libbz2-dev pngcrush python-is-python3 libsdl1.2-dev autoconf libxml2-utils wget pkg-config unzip gawk imagemagick libc6-dev gcc-multilib patchelf gzip clang subversion optipng device-tree-compiler ccache gcc lzip rsync automake fastboot patch pngquant expat lzop libswitch-perl make libcap-dev adb libxml2 bison zlib1g-dev libtool squashfs-tools gperf flex libtinfo6 minicom liblz4-tool libmpfr-dev libssl-dev build-essential cmake g++-multilib re2c axel maven xsltproc g++ git git-lfs policycoreutils unrar ncurses-dev tree bc curl software-properties-common tar texinfo schedtool libc6-dev-i386 apt-utils android-sdk-libsparse-utils android-sdk-ext4-utils
+          sudo apt install -y python3-pip jq libarchive-tools zip lib32z1-dev libbz2-dev pngcrush python-is-python3 libsdl1.2-dev autoconf libxml2-utils wget pkg-config unzip gawk imagemagick libc6-dev gcc-multilib patchelf gzip clang subversion optipng device-tree-compiler ccache gcc lzip rsync automake fastboot patch pngquant expat lzop libswitch-perl make libcap-dev adb libxml2 bison zlib1g-dev libtool squashfs-tools gperf flex libtinfo6 minicom liblz4-tool libmpfr-dev libssl-dev build-essential cmake g++-multilib re2c axel maven xsltproc g++ git git-lfs policycoreutils unrar ncurses-dev tree bc curl software-properties-common tar texinfo schedtool libc6-dev-i386 apt-utils
           sudo pip3 install yq
+          
+          # Alternative for android-sdk tools
+          wget https://github.com/Android-Tools/android-sdk-ext4-utils/releases/download/v1.0/ext4_utils.zip
+          unzip ext4_utils.zip -d /usr/local/bin
+          chmod +x /usr/local/bin/*
 
       - name: Set up ccache
         run: |
@@ -57,8 +62,8 @@ jobs:
       - name: Apply NetHunter config
         run: |
           echo "Applying NetHunter configuration..."
-          cat ${{ env.NH_DIR }}/common/configs/nethunter.cfg >> ${{ env.DRIVERS_CONFIG }}
-          cat ${{ env.NH_DIR }}/common/configs/essential.cfg >> ${{ env.DRIVERS_CONFIG }}
+          [ -f "${{ env.NH_DIR }}/common/configs/nethunter.cfg" ] && cat "${{ env.NH_DIR }}/common/configs/nethunter.cfg" >> ${{ env.DRIVERS_CONFIG }}
+          [ -f "${{ env.NH_DIR }}/common/configs/essential.cfg" ] && cat "${{ env.NH_DIR }}/common/configs/essential.cfg" >> ${{ env.DRIVERS_CONFIG }}
 
       - name: Build kernel
         run: |
@@ -73,14 +78,13 @@ jobs:
           cp kernel/out/arch/arm64/boot/Image.gz-dtb nethunter-package/
           
           # Copy modules
-          find kernel/out -name "*.ko" -exec cp {} nethunter-package/system/lib/modules/ \;
+          find kernel/out -name "*.ko" -exec cp {} nethunter-package/system/lib/modules/ \; || echo "No kernel modules found"
           
           # NetHunter specific files
-          cp -r ${{ env.NH_DIR }}/common/system/* nethunter-package/system/
-          cp ${{ env.NH_DIR }}/devices/${{ env.DEVICE_CODENAME }}/fstab.* nethunter-package/ 2>/dev/null || :
+          cp -r ${{ env.NH_DIR }}/common/system/* nethunter-package/system/ 2>/dev/null || :
           
           # Create updater script
-          cat > nethunter-package/META-INF/com/google/android/updater-script <<EOF
+          cat > nethunter-package/META-INF/com/google/android/updater-script <<'EOF'
           ui_print("Installing NetHunter for Realme 8");
           show_progress(0.750000, 0);
           ui_print("Extracting system...");
@@ -93,20 +97,20 @@ jobs:
           ui_print("Installation complete!");
           EOF
           
-          # Get update-binary
-          wget https://raw.githubusercontent.com/topjohnwu/Magisk/master/scripts/update-binary.sh -O nethunter-package/META-INF/com/google/android/update-binary
+          # Get update-binary from TWRP
+          wget https://github.com/TeamWin/Team-Win-Recovery-Project/raw/master/update-binary -O nethunter-package/META-INF/com/google/android/update-binary
 
       - name: Create flashable zip
         run: |
           cd nethunter-package
-          zip -r9 nethunter-${{ env.DEVICE_CODENAME }}-$(date +%Y%m%d).zip *
+          zip -r9 ../nethunter-${{ env.DEVICE_CODENAME }}-$(date +%Y%m%d).zip *
           echo "FLASHABLE_ZIP=nethunter-${{ env.DEVICE_CODENAME }}-$(date +%Y%m%d).zip" >> $GITHUB_ENV
 
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            nethunter-package/*.zip
+            nethunter-${{ env.DEVICE_CODENAME }}-*.zip
             kernel/out/arch/arm64/boot/Image.gz-dtb
           token: ${{ secrets.GITHUB_TOKEN }}
           name: NetHunter ${{ env.VERSION }} ($(date +%Y-%m-%d))
@@ -115,15 +119,14 @@ jobs:
             **Full NetHunter for Realme 8 (nashc)**
             
             **Includes:**
-            - Custom kernel with all NetHunter patches
-            - Required kernel modules
-            - NetHunter base system files
-            - Proper device configuration
+            - Custom kernel with NetHunter patches
+            - Kernel modules
+            - Base system files
             
             **Installation:**
-            1. Flash zip in custom recovery
-            2. Reboot and enjoy NetHunter!
+            1. Flash zip in TWRP recovery
+            2. Reboot
             
-            **Note:** This is a community build
+            **Note:** Community build - may require manual adjustments
           draft: false
           prerelease: false
