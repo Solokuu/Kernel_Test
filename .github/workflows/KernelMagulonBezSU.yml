@@ -51,16 +51,17 @@ jobs:
         run: |
           echo "${CLANG_PATH}" >> $GITHUB_PATH
 
-      - name: Clone Kali NetHunter Kernel Builder
+      # Klonowanie Kali NetHunter Kernel Builder z GitLab
+      - name: Clone Kali NetHunter Kernel Builder from GitLab
         run: |
-          git clone https://github.com/kali-linux/kali-nethunter-kernel.git nethunter-builder
+          git clone https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder.git nethunter-builder
           cd nethunter-builder
-          git checkout master  # Możesz zmienić na odpowiednią gałąź
+          git checkout main  # Możesz zmienić na odpowiednią gałąź
 
       - name: Configure Kali NetHunter Kernel Builder
         run: |
           cp ../drivers.cfg nethunter-builder/drivers.cfg
-          cp ../config.xml nethunter-builder/config.xml  # Jeśli konfiguracja wymaga pliku config.xml
+          cp ../local.config nethunter-builder/local.config  # Jeśli masz lokalną konfigurację
           chmod +x nethunter-builder/build.sh
 
       - name: Build kernel using Kali NetHunter Kernel Builder
