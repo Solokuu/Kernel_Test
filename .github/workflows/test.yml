@@ -1,4 +1,4 @@
-name: Realme 8 Custom NetHunter Kernel
+name: Realme 8 NetHunter Kernel Builder
 
 on:
   push:
@@ -18,7 +18,6 @@ jobs:
       KBUILD_BUILD_USER: "Kernel_Builder"
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
       DRIVERS_CONFIG: "${{ github.workspace }}/drivers.cfg"
-      DEVICE_CODENAME: nashc
 
     steps:
       - name: Checkout
@@ -52,68 +51,55 @@ jobs:
         run: |
           echo "${CLANG_PATH}" >> $GITHUB_PATH
 
-      - name: Configure NetHunter kernel options
+      - name: Add NetHunter config to drivers.cfg
         run: |
-          cd kernel
-          make O=out ARCH=${{ env.ARCH }} CC="${{ env.CLANG_PATH }}/clang" nashc_defconfig
-          # NetHunter essential configs
-          ./scripts/config --file out/.config \
-            --enable CONFIG_OVERLAY_FS \
-            --enable CONFIG_USB_CONFIGFS \
-            --enable CONFIG_USB_CONFIGFS_F_HID \
-            --enable CONFIG_USB_LIBCOMPOSITE \
-            --enable CONFIG_HID \
-            --enable CONFIG_HID_GENERIC \
-            --enable CONFIG_HIDRAW \
-            --enable CONFIG_UHID \
-            --enable CONFIG_CONFIGFS_FS \
-            --enable CONFIG_USB_GADGET \
-            --enable CONFIG_NETFILTER_XT_TARGET_CT \
-            --enable CONFIG_NF_CONNTRACK \
-            --enable CONFIG_NF_CONNTRACK_IPV4 \
-            --enable CONFIG_NF_CONNTRACK_IPV6
+          echo "# NetHunter required options" >> ${{ env.DRIVERS_CONFIG }}
+          echo "CONFIG_OVERLAY_FS=y" >> ${{ env.DRIVERS_CONFIG }}
+          echo "CONFIG_USB_CONFIGFS=y" >> ${{ env.DRIVERS_CONFIG }}
+          echo "CONFIG_USB_CONFIGFS_F_HID=y" >> ${{ env.DRIVERS_CONFIG }}
+          echo "CONFIG_USB_LIBCOMPOSITE=y" >> ${{ env.DRIVERS_CONFIG }}
+          echo "CONFIG_HID=y" >> ${{ env.DRIVERS_CONFIG }}
+          echo "CONFIG_HID_GENERIC=y" >> ${{ env.DRIVERS_CONFIG }}
+          echo "CONFIG_HIDRAW=y" >> ${{ env.DRIVERS_CONFIG }}
+          echo "CONFIG_UHID=y" >> ${{ env.DRIVERS_CONFIG }}
+          echo "CONFIG_CONFIGFS_FS=y" >> ${{ env.DRIVERS_CONFIG }}
+          echo "CONFIG_USB_GADGET=y" >> ${{ env.DRIVERS_CONFIG }}
 
-      - name: Apply custom drivers config
-        run: |
-          cd kernel
-          [ -f "${{ env.DRIVERS_CONFIG }}" ] && cat "${{ env.DRIVERS_CONFIG }}" >> out/.config || echo "No custom drivers config found"
-
-      - name: Build kernel
+      - name: Compile kernel
         run: |
           chmod +x build.sh
           ./build.sh
 
-      - name: Create NetHunter flashable package
+      - name: Create basic NetHunter package
         run: |
           mkdir -p nethunter-package
           cp kernel/out/arch/arm64/boot/Image.gz-dtb nethunter-package/
-          # Basic packaging for Realme 8
+          echo "Creating flashable zip..."
           cd nethunter-package
-          echo "Creating basic flashable zip..."
-          zip -r9 nethunter-${{ env.DEVICE_CODENAME }}-kernel.zip *
-          echo "Package created: nethunter-${{ env.DEVICE_CODENAME }}-kernel.zip"
+          zip -r9 nethunter-kernel.zip *
+          echo "Package created!"
 
       - name: Make a release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             kernel/out/arch/arm64/boot/Image.gz-dtb
-            nethunter-package/nethunter-${{ env.DEVICE_CODENAME }}-kernel.zip
+            nethunter-package/nethunter-kernel.zip
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: NetHunter Kernel - ${{ env.VERSION }}
+          name: Kernel Release - ${{ env.VERSION }}
           tag_name: ${{ github.run_id }}
           body: |
-             **Custom NetHunter Kernel for Realme 8 (nashc)**
+             **Custom NetHunter Kernel for Realme 8**
              
-             **Features:**
-             - Includes essential NetHunter functionality
+             **Info:**
+             - Version: ${{ env.VERSION }}
+             - Includes NetHunter functionality
              - Custom drivers from drivers.cfg
-             - Built for ${{ env.VERSION }}
              
              **Installation:**
-             1. For kernel only: flash Image.gz-dtb
-             2. Full package: flash nethunter-*.zip in recovery
+             1. Kernel only: flash Image.gz-dtb
+             2. Full package: flash nethunter-kernel.zip
              
-             **Note:** This is a custom build, not officially supported by NetHunter
+             **Note:** Custom build, not officially supported
           draft: false
           prerelease: false
