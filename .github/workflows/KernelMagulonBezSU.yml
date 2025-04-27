@@ -18,6 +18,7 @@ jobs:
       KBUILD_BUILD_USER: "Kernel_Builder"
       CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
       DRIVERS_CONFIG: "${{ github.workspace }}/drivers.cfg"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,26 +50,27 @@ jobs:
       - name: Add Clang to PATH
         run: |
           echo "${CLANG_PATH}" >> $GITHUB_PATH
-      #KERNEL SU 
-#      - name: Set KERNELSU environment variable to true
-#        run: echo "KERNELSU=true" >> $GITHUB_ENV
 
-#      - name: Set KERNELSU_VERSION environment variable
-#        run: echo "KERNELSU_VERSION=$(cat ksu_version.txt)" >> $GITHUB_ENV
-
-#      - name: Add KernelSU support to kernel
-#        run: |
-#          chmod +x kernelSU.sh
-#          ./kernelSU.sh
-
-      - name: Compile kernel with KernelSU support
+      - name: Clone Kali NetHunter Kernel Builder
         run: |
-          chmod +x build.sh
+          git clone https://github.com/kali-linux/kali-nethunter-kernel.git nethunter-builder
+          cd nethunter-builder
+          git checkout master  # Możesz zmienić na odpowiednią gałąź
+
+      - name: Configure Kali NetHunter Kernel Builder
+        run: |
+          cp ../drivers.cfg nethunter-builder/drivers.cfg
+          cp ../config.xml nethunter-builder/config.xml  # Jeśli konfiguracja wymaga pliku config.xml
+          chmod +x nethunter-builder/build.sh
+
+      - name: Build kernel using Kali NetHunter Kernel Builder
+        run: |
+          cd nethunter-builder
           ./build.sh
 
       - name: Extract Kernel Image path
         run: |
-          echo "KERNEL_IMAGE=/home/runner/work/Kernel_Test/Kernel_Test/kernel/out/arch/arm64/boot/Image.gz-dtb" >> $GITHUB_ENV
+          echo "KERNEL_IMAGE=$(find out -type f -name 'Image.gz-dtb')" >> $GITHUB_ENV
 
       - name: Make a release
         uses: softprops/action-gh-release@v1
