@@ -1,0 +1,170 @@
+name: Realme 8 NetHunter Kernel Builder
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        version: ["LineageOS-20"]
+
+    env:
+      VERSION: ${{ matrix.version }}
+      ARCH: arm64
+      KBUILD_BUILD_HOST: Github-Action
+      KBUILD_BUILD_USER: "NetHunter_Builder"
+      CLANG_PATH: ${{ github.workspace }}/kernel/clang/bin
+      CROSS_COMPILE: aarch64-linux-gnu-
+      CROSS_COMPILE_ARM32: arm-linux-gnueabi-
+      DEVICE_CODENAME: nashc
+      KERNEL_DIR: ${{ github.workspace }}/kernel
+      NH_DIR: ${{ github.workspace }}/nethunter-builder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y python3-pip jq libarchive-tools zip lib32z1-dev libbz2-dev pngcrush python-is-python3 libsdl1.2-dev autoconf libxml2-utils wget pkg-config unzip gawk imagemagick libc6-dev gcc-multilib patchelf gzip clang subversion optipng device-tree-compiler ccache gcc lzip rsync automake fastboot patch pngquant expat lzop libswitch-perl make libcap-dev adb libxml2 bison zlib1g-dev libtool squashfs-tools gperf flex libtinfo6 minicom liblz4-tool libmpfr-dev libssl-dev build-essential cmake g++-multilib re2c axel maven xsltproc g++ git git-lfs policycoreutils unrar ncurses-dev tree bc curl software-properties-common tar texinfo schedtool libc6-dev-i386 apt-utils
+          sudo pip3 install yq
+          sudo apt install -y android-sdk-libsparse-utils android-sdk-ext4-utils
+
+      - name: Set up ccache
+        run: |
+          echo "/usr/lib/ccache" >> $GITHUB_PATH
+          echo "USE_CCACHE=1" >> $GITHUB_ENV
+          echo "CCACHE_DIR=${{ github.workspace }}/.ccache" >> $GITHUB_ENV
+          mkdir -p ${{ github.workspace }}/.ccache
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
+
+      - name: Clone toolchains and kernel sources
+        run: |
+          git clone --depth=1 https://gitlab.com/ThankYouMario/android_prebuilts_clang_kernel_linux-x86_clang-r416183b.git ${{ env.CLANG_PATH }}/..
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git ${{ github.workspace }}/gcc64
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git ${{ github.workspace }}/gcc32
+          git clone --depth=1 --branch lineage-20 https://github.com/Realme-8-Kernel/android_kernel_realme_mt6785.git ${{ env.KERNEL_DIR }}
+
+      - name: Clone Kali NetHunter Kernel Builder
+        run: |
+          git clone --depth=1 https://gitlab.com/kalilinux/nethunter/build-scripts/kali-nethunter-kernel-builder.git ${{ env.NH_DIR }}
+          cp -r ${{ env.NH_DIR }}/patches ${{ github.workspace }}/
+          cp ${{ env.NH_DIR }}/build.sh ${{ github.workspace }}/
+
+      - name: Apply NetHunter patches
+        run: |
+          cd ${{ env.KERNEL_DIR }}
+          for patch in ${{ github.workspace }}/patches/*.patch; do
+            patch -p1 < $patch
+          done
+
+      - name: Configure kernel
+        run: |
+          cd ${{ env.KERNEL_DIR }}
+          make O=out ARCH=${{ env.ARCH }} CC="${{ env.CLANG_PATH }}/clang" CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=${{ github.workspace }}/gcc64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=${{ github.workspace }}/gcc32/bin/arm-linux-androideabi- nashc_defconfig
+          # Apply NetHunter config changes
+          scripts/config --file out/.config \
+            --enable CONFIG_KALLSYMS \
+            --enable CONFIG_KALLSYMS_ALL \
+            --enable CONFIG_OVERLAY_FS \
+            --enable CONFIG_IKCONFIG \
+            --enable CONFIG_IKCONFIG_PROC \
+            --enable CONFIG_NETFILTER_XT_TARGET_CT \
+            --enable CONFIG_NF_CONNTRACK \
+            --enable CONFIG_NF_CONNTRACK_IPV4 \
+            --enable CONFIG_NF_CONNTRACK_IPV6 \
+            --enable CONFIG_IP_NF_IPTABLES \
+            --enable CONFIG_IP_NF_FILTER \
+            --enable CONFIG_IP_NF_TARGET_REJECT \
+            --enable CONFIG_IP6_NF_IPTABLES \
+            --enable CONFIG_IP6_NF_FILTER \
+            --enable CONFIG_IP6_NF_TARGET_REJECT \
+            --enable CONFIG_BRIDGE \
+            --enable CONFIG_BRIDGE_NETFILTER \
+            --enable CONFIG_NETFILTER_XT_MATCH_PHYSDEV \
+            --enable CONFIG_BRIDGE_EBT_BROUTE \
+            --enable CONFIG_BRIDGE_EBT_T_FILTER \
+            --enable CONFIG_BRIDGE_EBT_T_NAT \
+            --enable CONFIG_BRIDGE_EBT_802_3 \
+            --enable CONFIG_BRIDGE_EBT_AMONG \
+            --enable CONFIG_BRIDGE_EBT_ARP \
+            --enable CONFIG_BRIDGE_EBT_IP \
+            --enable CONFIG_BRIDGE_EBT_IP6 \
+            --enable CONFIG_BRIDGE_EBT_LIMIT \
+            --enable CONFIG_BRIDGE_EBT_MARK \
+            --enable CONFIG_BRIDGE_EBT_PKTTYPE \
+            --enable CONFIG_BRIDGE_EBT_STP \
+            --enable CONFIG_BRIDGE_EBT_VLAN \
+            --enable CONFIG_BRIDGE_EBT_ARPREPLY \
+            --enable CONFIG_BRIDGE_EBT_DNAT \
+            --enable CONFIG_BRIDGE_EBT_MARK_T \
+            --enable CONFIG_BRIDGE_EBT_REDIRECT \
+            --enable CONFIG_BRIDGE_EBT_SNAT \
+            --enable CONFIG_BRIDGE_EBT_LOG \
+            --enable CONFIG_BRIDGE_EBT_NFLOG \
+            --enable CONFIG_USB_CONFIGFS_F_HID \
+            --enable CONFIG_HID \
+            --enable CONFIG_USB_CONFIGFS \
+            --enable CONFIG_USB_LIBCOMPOSITE \
+            --enable CONFIG_CONFIGFS_FS \
+            --enable CONFIG_USB_GADGET
+
+      - name: Build kernel
+        run: |
+          cd ${{ env.KERNEL_DIR }}
+          make -j$(nproc --all) O=out ARCH=${{ env.ARCH }} CC="${{ env.CLANG_PATH }}/clang" CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=${{ github.workspace }}/gcc64/bin/aarch64-linux-android- CROSS_COMPILE_ARM32=${{ github.workspace }}/gcc32/bin/arm-linux-androideabi-
+          cp out/arch/arm64/boot/Image.gz-dtb ${{ github.workspace }}/Image.gz-dtb
+
+      - name: Package NetHunter kernel
+        run: |
+          cd ${{ env.NH_DIR }}
+          mkdir -p ${{ env.NH_DIR }}/out
+          cp ${{ github.workspace }}/Image.gz-dtb ${{ env.NH_DIR }}/out/
+          ./build.sh --device ${{ env.DEVICE_CODENAME }} --kernel ${{ github.workspace }}/Image.gz-dtb
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nethunter-kernel-${{ env.DEVICE_CODENAME }}
+          path: |
+            ${{ env.NH_DIR }}/out/*.zip
+            ${{ env.NH_DIR }}/out/*.img
+
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        if: github.ref == 'refs/heads/main'
+        with:
+          files: |
+            ${{ env.NH_DIR }}/out/*.zip
+            ${{ env.NH_DIR }}/out/*.img
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: NetHunter Kernel - ${{ env.DEVICE_CODENAME }} - ${{ env.VERSION }}
+          tag_name: nethunter-${{ env.DEVICE_CODENAME }}-${{ github.run_number }}
+          body: |
+            **NetHunter Kernel for Realme 8 (nashc)**
+            
+            **Build Info:**
+            - Kernel Version: ${{ env.VERSION }}
+            - Device: ${{ env.DEVICE_CODENAME }}
+            - Build Date: $(date +'%Y-%m-%d')
+            
+            **Installation:**
+            1. Flash the zip file in custom recovery
+            2. Reboot
+            
+            **Features:**
+            - Includes all NetHunter kernel requirements
+            - Built with Clang ${{ env.CLANG_VERSION }}
+          draft: false
+          prerelease: false
